@@ -105,11 +105,29 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Head bob while speaking. Uneven intervals, because evenly spaced motion
+   reads as a machine rather than someone talking. */
+@keyframes chief-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  22% { transform: translateY(-3px) rotate(-0.6deg); }
+  46% { transform: translateY(-1px) rotate(0.4deg); }
+  71% { transform: translateY(-2.5px) rotate(-0.3deg); }
+}
+
+/* Listening: rings leave the portrait and fade, so an open microphone is
+   obvious from the back of a room. */
+@keyframes chief-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
 .chief-breathe { animation: chief-breathe 4s ease-in-out infinite; }
 .chief-blink { animation: chief-blink 6s ease-in-out infinite; transform-origin: center 51px; }
 .chief-mouth { animation: chief-mouth 620ms ease-in-out infinite; }
 .chief-level { animation: chief-level 540ms ease-in-out infinite; }
-.chief-ring { animation: chief-ring 3s linear infinite; transform-origin: 60px 60px; }
+.chief-ring { animation: chief-ring 3s linear infinite; }
+.chief-bob { animation: chief-bob 1.5s ease-in-out infinite; }
+.chief-pulse { animation: chief-pulse 1.8s ease-out infinite; }
 
 /* Respect the system setting: no looping motion for anyone who has asked for
    less of it. The avatar still changes state, it just does not animate. */
@@ -118,7 +136,9 @@ body {
   .chief-blink,
   .chief-mouth,
   .chief-level,
-  .chief-ring {
+  .chief-ring,
+  .chief-bob,
+  .chief-pulse {
     animation: none;
   }
 }

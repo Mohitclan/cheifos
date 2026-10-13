@@ -192,9 +192,11 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
           <p className="mt-0.5 text-center text-[11px] leading-relaxed text-navy-300">
             {state === 'speaking'
               ? 'Reading from the records'
-              : state === 'thinking'
-                ? 'Looking it up'
-                : 'Ready when you are'}
+              : state === 'listening'
+                ? 'Listening - speak your question'
+                : state === 'thinking'
+                  ? 'Looking it up'
+                  : 'Ready when you are'}
           </p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -321,6 +323,7 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
                   Speech API is Chrome-only and dislikes a noisy room. */}
               <VoiceCapture
                 idleLabel="Speak"
+                onListeningChange={(listening) => setState(listening ? 'listening' : 'idle')}
                 onTranscript={(transcript) => {
                   setQuestion(transcript);
                   void ask(transcript);

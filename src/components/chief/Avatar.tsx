@@ -1,103 +1,98 @@
-'use client';
+import Image from 'next/image';
 
 /**
- * The chief-of-staff figure.
+ * The chief of staff, as a portrait.
  *
- * Drawn in SVG rather than rendered from a model or streamed from a service:
- * it costs nothing, works offline, and - the part that matters for this
- * product - it is unmistakably a representation rather than a person. A
- * photoreal face delivering machine-assembled sentences invites exactly the
- * trust this system is trying not to borrow.
+ * A flat render cannot lip-sync, and faking a mouth on one looks worse than
+ * not trying. So speech is carried by things that are honest about what they
+ * are: a bob at speaking cadence, a live level meter, and a ring that reacts.
+ * Listening radiates rings outward so it is obvious the microphone is open.
  *
- * Every animation is CSS (see globals.css), driven by the state prop alone.
- * Nothing here re-renders while it speaks:
- *   idle      - slow breathing, periodic blink
- *   thinking  - a turning dashed ring
- *   speaking  - the mouth and the level bars move
+ * Every looping animation is disabled under prefers-reduced-motion. The state
+ * still changes - ring colour and the caption carry it - it just stops moving.
  */
 
-export type AvatarState = 'idle' | 'thinking' | 'speaking';
+export type AvatarState = 'idle' | 'listening' | 'thinking' | 'speaking';
+
+const RING: Record<AvatarState, string> = {
+  idle: 'ring-navy-700',
+  listening: 'ring-risk-500',
+  thinking: 'ring-navy-500',
+  speaking: 'ring-accent-500',
+};
+
+const GLOW: Record<AvatarState, string> = {
+  idle: 'opacity-0',
+  listening: 'opacity-70 bg-risk-500/30',
+  thinking: 'opacity-40 bg-navy-400/30',
+  speaking: 'opacity-80 bg-accent-500/30',
+};
+
+/** Level-meter bars. Staggered so the row reads as speech, not a metronome. */
+const BAR_DELAYS = ['0ms', '120ms', '60ms', '180ms', '30ms'];
 
 export function Avatar({ state, size = 160 }: { state: AvatarState; size?: number }) {
   const speaking = state === 'speaking';
+  const listening = state === 'listening';
 
   return (
-    <svg
-      viewBox="0 0 120 120"
-      width={size}
-      height={size}
-      role="img"
-      aria-label={
-        speaking
-          ? 'Chief of staff, speaking'
-          : state === 'thinking'
-            ? 'Chief of staff, looking it up'
-            : 'Chief of staff'
-      }
-      className={state === 'idle' ? 'chief-breathe' : undefined}
-    >
-      <defs>
-        <linearGradient id="chief-bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1a2740" />
-          <stop offset="100%" stopColor="#0b1220" />
-        </linearGradient>
-        <linearGradient id="chief-accent" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#16a39a" />
-          <stop offset="100%" stopColor="#0f6f6a" />
-        </linearGradient>
-      </defs>
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative" style={{ width: size, height: size }}>
+        {/* Listening rings radiate outward: the microphone is open and the
+            person on stage should not have to guess. */}
+        {listening && (
+          <>
+            <span className="chief-pulse absolute inset-0 rounded-full border-2 border-risk-500/50" />
+            <span
+              className="chief-pulse absolute inset-0 rounded-full border-2 border-risk-500/35"
+              style={{ animationDelay: '700ms' }}
+            />
+          </>
+        )}
 
-      <circle cx="60" cy="60" r="58" fill="url(#chief-bg)" />
+        <span
+          className={`absolute -inset-2 rounded-full blur-xl transition-opacity duration-500 ${GLOW[state]}`}
+          aria-hidden
+        />
 
-      {/* Activity ring: brighter while speaking, turning while thinking */}
-      <circle
-        cx="60"
-        cy="60"
-        r="54"
-        fill="none"
-        stroke="url(#chief-accent)"
-        strokeWidth={state === 'idle' ? 1 : 2}
-        strokeOpacity={state === 'idle' ? 0.35 : 0.9}
-        strokeDasharray={state === 'thinking' ? '14 10' : undefined}
-        className={state === 'thinking' ? 'chief-ring' : undefined}
-      />
+        <div
+          className={`relative h-full w-full overflow-hidden rounded-full bg-white ring-2 transition-colors duration-300 ${RING[state]} ${
+            state === 'idle' ? 'chief-breathe' : ''
+          } ${speaking ? 'chief-bob' : ''}`}
+        >
+          <Image
+            src="/chief-avatar.png"
+            alt=""
+            width={320}
+            height={320}
+            priority
+            className="h-full w-full scale-105 object-cover object-top"
+          />
+        </div>
 
-      {/* Shoulders and collar - what makes the silhouette read as a person at work */}
-      <path d="M26 112c4-19 17-28 34-28s30 9 34 28" fill="#243352" />
-      <path d="M50 86l10 12 10-12 6 4-16 18-16-18z" fill="#111b2e" />
+        {/* Thinking: a slow sweep around the portrait rather than a spinner
+            inside it, so the figure stays readable while it works. */}
+        {state === 'thinking' && (
+          <span
+            className="chief-ring absolute -inset-1 rounded-full border-2 border-dashed border-navy-400/60"
+            aria-hidden
+          />
+        )}
+      </div>
 
-      {/* Head */}
-      <circle cx="60" cy="52" r="24" fill="#2c3d5e" />
-      <path d="M36 46c2-14 11-20 24-20s22 6 24 20c-6-6-14-9-24-9s-18 3-24 9z" fill="#1a2740" />
-
-      {/* Eyes. The blink is a scaleY on the group, so it needs no state. */}
-      <g className="chief-blink" fill="#dce8f5">
-        <circle cx="50.5" cy="51" r="3.1" />
-        <circle cx="69.5" cy="51" r="3.1" />
-      </g>
-
-      {/* Mouth. Scaled vertically about its own centre while speaking. */}
-      <g className={speaking ? 'chief-mouth' : undefined} style={{ transformOrigin: '60px 64px' }}>
-        <rect x="54" y="62" width="12" height="4" rx="2" fill="#dce8f5" opacity="0.92" />
-      </g>
-
-      {/* Level meter: the visible sign that audio is actually playing */}
-      <g transform="translate(44, 104)">
-        {[0, 1, 2, 3, 4].map((index) => (
-          <rect
+      {/* The level meter is the honest stand-in for a moving mouth. It only
+          appears while speech is actually playing. */}
+      <div className="flex h-5 items-end gap-1" aria-hidden>
+        {BAR_DELAYS.map((delay, index) => (
+          <span
             key={index}
-            x={index * 7}
-            y={-2}
-            width="4"
-            height="4"
-            rx="2"
-            fill="url(#chief-accent)"
-            opacity={speaking ? 0.95 : 0.3}
-            className={speaking ? 'chief-level' : undefined}
-            style={speaking ? { animationDelay: `${index * 90}ms`, transformOrigin: 'center' } : undefined}
+            className={`w-1 rounded-full transition-all duration-300 ${
+              speaking ? 'chief-level h-2 bg-accent-500' : 'h-1 bg-navy-700'
+            }`}
+            style={speaking ? { animationDelay: delay } : undefined}
           />
         ))}
-      </g>
-    </svg>
+      </div>
+    </div>
   );
 }

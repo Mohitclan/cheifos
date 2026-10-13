@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Mic, MicOff, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { buttonClass } from '@/components/ui';
@@ -45,9 +45,12 @@ const noSubscribe = () => () => {};
 export function VoiceCapture({
   onTranscript,
   idleLabel = 'Dictate',
+  onListeningChange,
 }: {
   onTranscript: (text: string) => void;
   idleLabel?: string;
+  /** Lets a parent mirror the open microphone, e.g. in the avatar. */
+  onListeningChange?: (listening: boolean) => void;
 }) {
   // useSyncExternalStore rather than an effect: the server snapshot is "not
   // supported", the client snapshot is the real answer, and hydration swaps
@@ -57,7 +60,14 @@ export function VoiceCapture({
     () => getRecognitionCtor() !== null,
     () => false,
   );
-  const [listening, setListening] = useState(false);
+  const [listening, setListeningState] = useState(false);
+  const setListening = useCallback(
+    (value: boolean) => {
+      setListeningState(value);
+      onListeningChange?.(value);
+    },
+    [onListeningChange],
+  );
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
