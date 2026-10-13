@@ -14,7 +14,7 @@ export function IdentitySwitcher({ users, currentId }: { users: UserRow[]; curre
 
   return (
     <label className="flex items-center gap-2">
-      <span className="text-[11px] font-semibold tracking-wider text-navy-300 uppercase">Viewing as</span>
+      <span className="text-[11px] font-medium text-navy-400">Viewing as</span>
       <select
         aria-label="Switch demo identity"
         className="rounded-lg border border-navy-700 bg-navy-800 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-60"

@@ -47,7 +47,7 @@ export function DecisionCard({
       {!askMode && (
         <>
           <label className="block">
-            <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+            <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-ink-400">
               Your response
               <span className="rounded bg-done-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-normal text-done-700 normal-case">
                 {edited ? 'edited by you' : 'draft, assembled from the update'}
@@ -116,7 +116,7 @@ export function DecisionCard({
       {askMode && (
         <>
           <label className="block">
-            <span className="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+            <span className="mb-1.5 block text-[11px] font-semibold text-ink-400">
               Question to send back
             </span>
             <textarea

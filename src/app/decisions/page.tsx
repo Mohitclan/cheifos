@@ -191,7 +191,7 @@ function BlockerPanel({
       }
     >
       <div className="rounded-lg border border-risk-500/30 bg-risk-100/50 px-4 py-3">
-        <p className="text-[11px] font-bold tracking-wider text-risk-700 uppercase">Why this is first</p>
+        <p className="text-[11px] font-semibold text-risk-700">Why this is first</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-900">{blocker.priority_reason}</p>
       </div>
 
@@ -220,7 +220,7 @@ function BlockerPanel({
         </div>
 
         <div className="rounded-lg border border-line px-4 py-3">
-          <p className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          <p className="mb-2 text-[11px] font-semibold text-ink-400">
             Extracted fields, as confirmed by the author
           </p>
           {extraction === null ? (

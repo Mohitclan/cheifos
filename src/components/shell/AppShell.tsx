@@ -26,13 +26,17 @@ import { ResetButton } from './ResetButton';
  *     saying so on screen reads as maturity rather than as a gap.
  */
 
+/**
+ * `gap` marks where the CEO's own surfaces end and the shared ones begin. A
+ * thin rule carries that better than a role tag on every single row did.
+ */
 const NAV = [
-  { href: '/chief', label: 'Daily Brief', icon: Speech, role: 'CEO' },
-  { href: '/', label: 'Command Center', icon: LayoutDashboard, role: 'CEO' },
-  { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning, role: 'CEO' },
-  { href: '/schedule', label: 'Schedule', icon: CalendarRange, role: 'CEO' },
-  { href: '/employee', label: 'Employee Workspace', icon: PenLine, role: 'Team' },
-  { href: '/activity', label: 'Activity', icon: Activity, role: 'Audit' },
+  { href: '/chief', label: 'Daily Brief', icon: Speech },
+  { href: '/', label: 'Command Center', icon: LayoutDashboard },
+  { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning },
+  { href: '/schedule', label: 'Schedule', icon: CalendarRange },
+  { href: '/employee', label: 'Employee Workspace', icon: PenLine, gap: true },
+  { href: '/activity', label: 'Activity', icon: Activity },
 ] as const;
 
 export async function AppShell({ children }: { children: ReactNode }) {
@@ -53,58 +57,67 @@ export async function AppShell({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-3">
           <ul className="space-y-0.5">
             {NAV.map((item) => (
-              <li key={item.href}>
+              <li key={item.href} className={'gap' in item && item.gap ? 'mt-2 border-t border-navy-800 pt-2' : ''}>
                 <Link
                   href={item.href}
                   className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-200 transition-colors hover:bg-navy-800 hover:text-white"
                 >
                   <item.icon size={16} className="shrink-0 text-navy-300 group-hover:text-accent-500" aria-hidden />
-                  <span className="flex-1">{item.label}</span>
-                  <span className="text-[10px] font-semibold tracking-wider text-navy-300/70 uppercase">
-                    {item.role}
-                  </span>
+                  <span>{item.label}</span>
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="border-t border-navy-800 px-4 py-4">
-          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-navy-300">
+        <div className="space-y-2.5 border-t border-navy-800 px-4 py-4">
+          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-navy-200">
             <ShieldAlert size={14} className="mt-0.5 shrink-0 text-risk-500" aria-hidden />
             <span>
               Nothing in this system sends a message or closes a blocker without a human pressing approve.
             </span>
+          </p>
+          <p className="pl-[22px] text-[10px] leading-relaxed text-navy-400">
+            Role switching is a demo control, not security. Production requires server-enforced authentication,
+            authorisation and organisation scoping before any real record enters the system.
           </p>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-navy-800 bg-navy-900">
-          <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-risk-500 px-2.5 py-1 text-[11px] font-bold tracking-wider text-navy-950 uppercase">
-              Demo mode - fictional data
+          {/* One strip, not three. Demo status, what is doing the extraction,
+              and who you are reading as - each stated once, quietly. The full
+              wording of each caveat lives in a title so nothing is lost. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-2.5">
+            <span className="inline-flex items-center gap-2 text-[12px] font-medium text-risk-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-risk-500" aria-hidden />
+              Demo data
             </span>
 
             <span
-              className="inline-flex items-center gap-2 rounded-full border border-navy-700 px-2.5 py-1 text-[11px] font-medium text-navy-200"
-              title="Extraction runs locally with a deterministic rules engine. No model is connected."
+              className="text-[12px] text-navy-300"
+              title="Extraction runs locally with a deterministic rules engine. No language model is connected."
             >
-              <span className="text-navy-300">Extraction:</span>
-              <span className="font-semibold text-white">{provider.extraction}</span>
-              <span aria-hidden className="text-navy-700">
-                |
+              {provider.extraction}
+              <span aria-hidden className="mx-1.5 text-navy-700">
+                ·
               </span>
-              <span className="text-navy-300">Internal LLM:</span>
-              <span
-                className={`font-semibold ${provider.llmConnected ? 'text-accent-500' : 'text-risk-500'}`}
-              >
-                {provider.llm}
+              <span className={provider.llmConnected ? 'text-accent-500' : 'text-navy-400'}>
+                model {provider.llm}
               </span>
             </span>
 
             <div className="ml-auto flex items-center gap-3">
-              <IdentitySwitcher users={users} currentId={current?.id ?? null} />
+              <div className="text-right">
+                <IdentitySwitcher users={users} currentId={current?.id ?? null} />
+                <p
+                  className="mt-0.5 text-[10px] text-navy-400"
+                  title="Identity switching here is a demo control, not security. Production requires server-enforced authentication, authorisation and organisation scoping before any real record enters the system."
+                >
+                  Demo control, not real sign-in
+                </p>
+              </div>
               <ResetButton />
             </div>
           </div>
@@ -124,11 +137,6 @@ export async function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <p className="border-t border-navy-800 bg-navy-950 px-5 py-1.5 text-[11px] text-navy-300">
-            <strong className="font-semibold text-navy-200">Not authenticated.</strong> Identity switching here is a
-            demo control, not security. Production requires server-enforced authentication, authorisation and
-            organisation scoping before any real record enters the system.
-          </p>
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-6">{children}</main>

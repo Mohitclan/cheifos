@@ -121,7 +121,7 @@ export function SchedulePlanner({
 
       {conflicts.length > 0 && (
         <div className="rounded-xl border border-blocked-500/40 bg-blocked-100 px-5 py-4">
-          <p className="text-[11px] font-bold tracking-wider text-blocked-700 uppercase">
+          <p className="text-[11px] font-semibold text-blocked-700">
             {conflicts.length} overlap{conflicts.length === 1 ? '' : 's'} on this day
           </p>
           <ul className="mt-2 space-y-1.5">

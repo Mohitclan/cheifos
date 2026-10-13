@@ -125,7 +125,7 @@ export default async function EmployeeWorkspace() {
                     <div className="mt-2 grid gap-3 lg:grid-cols-2">
                       <Transcript text={update.original_text} />
                       <div className="rounded-lg border border-line px-4 py-3">
-                        <p className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+                        <p className="mb-2 text-[11px] font-semibold text-ink-400">
                           Fields saved with it
                         </p>
                         {extraction === null ? (

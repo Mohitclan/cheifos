@@ -110,27 +110,40 @@ export default async function CommandCenter() {
           </div>
         ) : (
           blockers.map((blocker) => (
+            // Title first. The badges used to come before it, so the eye had to
+            // clear five chrome elements before reaching the thing being said.
             <article key={blocker.id} className="px-5 py-4 first:pt-0 last:pb-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <PriorityPill priority={blocker.priority} />
-                <StatusPill status={blocker.status} />
-                <span className="text-xs font-medium text-ink-500">{blocker.project_name}</span>
-                {blocker.dependency_department && (
-                  <Pill tone="neutral">Waiting on {blocker.dependency_department}</Pill>
-                )}
-                <span className="ml-auto text-xs text-ink-400">{ago(blocker.created_at)}</span>
+              <div className="flex items-start gap-3">
+                <h3 className="flex-1 text-[15px] leading-snug font-semibold text-ink-900">{blocker.title}</h3>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusPill status={blocker.status} />
+                  <span className="text-xs text-ink-400">{ago(blocker.created_at)}</span>
+                </div>
               </div>
-              <h3 className="mt-2 text-sm font-semibold text-ink-900">{blocker.title}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                <span className="font-semibold text-ink-700">Why this is prioritised: </span>
-                {blocker.priority_reason}
+
+              {/* One quiet line of context instead of four competing badges. */}
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-500">
+                <PriorityPill priority={blocker.priority} />
+                <span>{blocker.project_name}</span>
+                {blocker.dependency_department && (
+                  <>
+                    <span aria-hidden className="text-ink-300">
+                      ·
+                    </span>
+                    <span>waiting on {blocker.dependency_department}</span>
+                  </>
+                )}
+                {blocker.raised_by_name && (
+                  <>
+                    <span aria-hidden className="text-ink-300">
+                      ·
+                    </span>
+                    <span>raised by {blocker.raised_by_name}</span>
+                  </>
+                )}
               </p>
-              {blocker.raised_by_name && (
-                <p className="mt-1.5 text-xs text-ink-400">
-                  Raised by {blocker.raised_by_name}
-                  {blocker.original_text ? ' from a written update' : ''}
-                </p>
-              )}
+
+              <p className="mt-2 text-xs leading-relaxed text-ink-500">{blocker.priority_reason}</p>
             </article>
           ))
         )}
@@ -178,7 +191,7 @@ export default async function CommandCenter() {
 
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
                 <div>
-                  <h4 className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Tasks</h4>
+                  <h4 className="mb-2 text-[11px] font-semibold text-ink-400">Tasks</h4>
                   <ul className="space-y-1.5">
                     {tasks.map((task) => {
                       const due = dueLabel(task.due_date);
@@ -195,7 +208,7 @@ export default async function CommandCenter() {
                 </div>
 
                 <div>
-                  <h4 className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Blockers</h4>
+                  <h4 className="mb-2 text-[11px] font-semibold text-ink-400">Blockers</h4>
                   {projectBlockers.length === 0 ? (
                     <p className="text-xs text-ink-400">None raised.</p>
                   ) : (
@@ -214,7 +227,7 @@ export default async function CommandCenter() {
                 </div>
 
                 <div>
-                  <h4 className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+                  <h4 className="mb-2 text-[11px] font-semibold text-ink-400">
                     Latest updates
                   </h4>
                   {projectUpdates.length === 0 ? (

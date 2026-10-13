@@ -275,7 +275,7 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
                     speakingId === line.id ? 'ring-2 ring-accent-500/40' : ''
                   }`}
                 >
-                  <p className="flex items-center gap-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+                  <p className="flex items-center gap-2 text-[11px] font-semibold text-ink-400">
                     {line.heading}
                     {line.unanswered && <Pill tone="risk">no answer invented</Pill>}
                   </p>

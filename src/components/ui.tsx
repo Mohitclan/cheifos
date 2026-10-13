@@ -31,7 +31,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase ${PILL_TONES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${PILL_TONES[tone]} ${className}`}
     >
       {children}
     </span>
@@ -61,15 +61,24 @@ export function StatusPill({ status }: { status: string }) {
   return <Pill tone={entry.tone}>{entry.label}</Pill>;
 }
 
+/**
+ * Only high priority earns a badge.
+ *
+ * When every row carries a priority chip, the chips stop meaning anything and
+ * just add visual weight. Medium and low read as plain text, so the eye lands
+ * on what actually needs the CEO.
+ */
 export function PriorityPill({ priority }: { priority: 'high' | 'medium' | 'low' }) {
-  const tone: Tone = priority === 'high' ? 'blocked' : priority === 'medium' ? 'risk' : 'neutral';
-  return <Pill tone={tone}>{priority} priority</Pill>;
+  if (priority !== 'high') {
+    return <span className="text-[11px] text-ink-400 capitalize">{priority}</span>;
+  }
+  return <Pill tone="blocked">High priority</Pill>;
 }
 
 /** Marks a value the system inferred rather than read. Never hidden. */
 export function AssumptionTag({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded border border-risk-500/40 bg-risk-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-risk-700 uppercase">
+    <span className="inline-flex items-center gap-1 rounded border border-risk-500/40 bg-risk-100 px-1.5 py-0.5 text-[10px] font-medium text-risk-700">
       {children}
     </span>
   );
@@ -130,7 +139,7 @@ export function KpiCard({
   return (
     <div className="relative overflow-hidden rounded-xl border border-line bg-panel px-5 py-4 shadow-[0_1px_2px_rgba(18,23,34,0.04)]">
       <span className={`absolute inset-y-0 left-0 w-1 ${accentBar[tone]}`} aria-hidden />
-      <p className="text-[11px] font-semibold tracking-wider text-ink-500 uppercase">{label}</p>
+      <p className="text-[11px] font-semibold text-ink-400">{label}</p>
       <p className="numeric mt-2 text-3xl leading-none font-semibold text-ink-900">{value}</p>
       {note && <p className="mt-2 text-xs leading-snug text-ink-500">{note}</p>}
     </div>
@@ -163,7 +172,7 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+      <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-ink-400">
         {label}
         {tag}
       </span>
@@ -221,7 +230,7 @@ export function Notice({
 export function Transcript({ text, label = 'Original wording, as submitted' }: { text: string; label?: string }) {
   return (
     <figure className="rounded-lg border border-line bg-surface px-4 py-3">
-      <figcaption className="mb-2 text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+      <figcaption className="mb-2 text-[11px] font-semibold text-ink-400">
         {label}
       </figcaption>
       <blockquote className="transcript text-ink-700">{text}</blockquote>

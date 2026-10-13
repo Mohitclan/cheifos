@@ -223,7 +223,7 @@ export function UpdateComposer({
           >
             {extraction.needs_clarification && extraction.clarification_question && (
               <div className="mb-4 rounded-lg border border-risk-500/50 bg-risk-100 px-4 py-3">
-                <p className="flex items-center gap-2 text-[11px] font-bold tracking-wider text-risk-700 uppercase">
+                <p className="flex items-center gap-2 text-[11px] font-semibold text-risk-700">
                   <CircleHelp size={14} aria-hidden /> One question before this is useful
                 </p>
                 <p className="mt-1.5 text-sm font-medium text-risk-700">{extraction.clarification_question}</p>
