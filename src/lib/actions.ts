@@ -594,8 +594,9 @@ export async function proposeSchedule(form: FormData): Promise<SubmitResult & { 
       for (const block of proposal.blocks) {
         run(
           `INSERT INTO schedule_items (owner_id, title, start_at, end_at, priority, source_text,
-                                       is_assumed_duration, is_assumed_time, plan_date, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?)`,
+                                       is_assumed_duration, is_assumed_time, kind, with_whom, topic,
+                                       plan_date, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?)`,
           [
             ownerId,
             block.title,
@@ -605,6 +606,9 @@ export async function proposeSchedule(form: FormData): Promise<SubmitResult & { 
             block.sourceText,
             block.isAssumedDuration ? 1 : 0,
             block.isAssumedTime ? 1 : 0,
+            block.kind,
+            block.withWhom,
+            block.topic,
             planDate,
             nowIso(),
           ],

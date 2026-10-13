@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { requireCeo } from '@/lib/auth/guard';
 import { gapLabel, getMissingToday } from '@/lib/reporting';
+import { getNextAlert } from '@/lib/alerts';
+import { NextUp } from '@/components/shell/NextUp';
 import { ArrowUpRight } from 'lucide-react';
 import {
   getAuditTrail,
@@ -35,6 +37,7 @@ export const dynamic = 'force-dynamic';
 export default async function CommandCenter() {
   const signedIn = await requireCeo();
   const missingToday = getMissingToday();
+  const nextAlert = getNextAlert(signedIn.id);
   if (!isSeeded()) return <SeedPrompt />;
 
   const current = signedIn;
@@ -66,6 +69,10 @@ export default async function CommandCenter() {
           <ArrowUpRight size={15} aria-hidden />
         </Link>
       </header>
+
+      {/* Above the numbers on purpose: what is about to happen outranks what
+          is merely true. */}
+      <NextUp alert={nextAlert} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard

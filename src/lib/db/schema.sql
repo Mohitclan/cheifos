@@ -124,6 +124,11 @@ CREATE TABLE schedule_items (
   source_text         TEXT,
   is_assumed_duration INTEGER NOT NULL DEFAULT 0,
   is_assumed_time     INTEGER NOT NULL DEFAULT 0,
+  -- A block someone else is expecting you at, versus time you set aside for
+  -- yourself. Only the first kind is worth interrupting the CEO about.
+  kind                TEXT NOT NULL DEFAULT 'focus' CHECK (kind IN ('meeting', 'focus')),
+  with_whom           TEXT,
+  topic               TEXT,
   plan_date           TEXT NOT NULL,
   status              TEXT NOT NULL CHECK (status IN ('proposed', 'approved', 'discarded')),
   created_at          TEXT NOT NULL

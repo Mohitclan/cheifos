@@ -712,13 +712,17 @@ export function seedDemoWorkspace(): void {
       sourceText: string;
       assumedDuration?: boolean;
       assumedTime?: boolean;
+      kind?: 'meeting' | 'focus';
+      withWhom?: string;
+      topic?: string;
     }): void => {
       const start = atHour(0, input.startHour, input.startMinute ?? 0);
       const end = new Date(new Date(start).getTime() + input.durationMinutes * 60_000);
       const id = run(
         `INSERT INTO schedule_items (owner_id, title, start_at, end_at, priority, source_text,
-                                     is_assumed_duration, is_assumed_time, plan_date, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?)`,
+                                     is_assumed_duration, is_assumed_time, kind, with_whom, topic,
+                                     plan_date, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?)`,
         [
           ceo,
           input.title,
@@ -728,6 +732,9 @@ export function seedDemoWorkspace(): void {
           input.sourceText,
           input.assumedDuration ? 1 : 0,
           input.assumedTime ? 1 : 0,
+          input.kind ?? 'focus',
+          input.withWhom ?? null,
+          input.topic ?? null,
           dateOnly(0),
           daysAgo(1, 19),
         ],
@@ -750,13 +757,41 @@ export function seedDemoWorkspace(): void {
       sourceText: 'review the subscription dashboard blocker first thing',
     });
     scheduleItem({
-      title: 'Pricing launch readiness with Design and Legal',
+      title: 'Pricing launch readiness',
       startHour: 11,
       durationMinutes: 60,
       priority: 'high',
-      sourceText: 'pricing launch readiness with design and legal',
+      sourceText: 'meet design and legal about pricing launch readiness at 11',
       assumedDuration: true,
+      kind: 'meeting',
+      withWhom: 'Design and Legal',
+      topic: 'pricing launch readiness',
     });
+    scheduleItem({
+      title: 'Quarterly review',
+      startHour: 16,
+      durationMinutes: 45,
+      priority: 'high',
+      sourceText: 'call with Arcil about the Q4 renewal at 4',
+      kind: 'meeting',
+      withWhom: 'Arcil',
+      topic: 'the Q4 renewal',
+    });
+    // Placed relative to seed time so a reset immediately before presenting
+    // always leaves a meeting on the near horizon, whatever hour that is.
+    const soon = new Date(Date.now() + 25 * 60_000);
+    scheduleItem({
+      title: 'Client call: Arcil renewal',
+      startHour: soon.getHours(),
+      startMinute: soon.getMinutes(),
+      durationMinutes: 30,
+      priority: 'high',
+      sourceText: 'call with Arcil about the Q4 renewal',
+      kind: 'meeting',
+      withWhom: 'Arcil',
+      topic: 'the Q4 renewal and the pricing they asked about',
+    });
+
     scheduleItem({
       title: 'Hold for urgent issues',
       startHour: 15,

@@ -9,6 +9,7 @@ import {
   getScheduleForDate,
   type UserRow,
 } from '@/lib/db/queries';
+import { getTodaysMeetings } from '@/lib/alerts';
 import { clock, todayIso, tomorrowIso } from '@/lib/format';
 
 /**
@@ -170,6 +171,30 @@ export function buildBriefing(user: UserRow | undefined): Briefing {
       speech: `${parts.join(', ')}.`,
       detail: today.map((item) => `${clock(item.start_at)}-${clock(item.end_at)} ${item.title}`),
       tone: 'accent',
+      href: '/schedule',
+    });
+  }
+
+  // ---- Meetings --------------------------------------------------------
+  // Said separately from the day, and with who and what, because a meeting is
+  // the one kind of block where somebody else is also waiting.
+  const meetings = getTodaysMeetings(ownerId, now);
+  if (meetings.length) {
+    const ahead = meetings.filter((alert) => alert.urgency !== 'past');
+    const next = ahead[0];
+
+    segments.push({
+      id: 'meetings',
+      heading: meetings.length === 1 ? 'Your meeting today' : 'Your meetings today',
+      speech: ahead.length
+        ? `${plural(ahead.length, 'meeting', 'meetings')} still ahead of you today. ${next.headline}`
+        : `All ${plural(meetings.length, 'meeting', 'meetings')} today are behind you.`,
+      detail: meetings.map((alert) => {
+        const who = alert.item.with_whom ? ` with ${alert.item.with_whom}` : '';
+        const what = alert.item.topic ? ` about ${alert.item.topic}` : '';
+        return `${clock(alert.item.start_at)}-${clock(alert.item.end_at)} ${alert.item.title}${who}${what}`;
+      }),
+      tone: ahead.length ? 'risk' : 'neutral',
       href: '/schedule',
     });
   }

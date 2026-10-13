@@ -17,6 +17,7 @@ import {
 } from '@/lib/db/queries';
 import { ago, clock, dayShort, dueLabel, todayIso, tomorrowIso } from '@/lib/format';
 import { gapLabel, getMissingToday } from '@/lib/reporting';
+import { getTodaysMeetings } from '@/lib/alerts';
 
 /**
  * Question answering for the chief-of-staff panel.
@@ -50,6 +51,7 @@ type Intent =
   | 'projects'
   | 'activity'
   | 'inbox'
+  | 'meetings'
   | 'quiet'
   | 'guide'
   | 'capabilities';
@@ -59,7 +61,14 @@ const INTENT_TERMS: Record<Intent, string[]> = {
   decisions: ['need me', 'needs me', 'waiting on me', 'decide', 'decision', 'decisions', 'approve', 'my attention', 'action'],
   blockers: ['blocked', 'blocker', 'blockers', 'stuck', 'holding', 'escalation', 'escalations'],
   due: ['due', 'deadline', 'deadlines', 'overdue', 'late', 'this week', 'soon'],
-  schedule: ['schedule', 'calendar', 'day', 'today', 'tomorrow', 'meeting', 'meetings', 'plan', 'diary', 'next up'],
+  // Declared before `schedule`, and without the meeting words: a question
+  // about meetings should get who and what, not a list of time blocks. Ties in
+  // scoreIntent go to whichever is declared first, so order is the mechanism.
+  meetings: [
+    'meeting', 'meetings', 'who am i meeting', 'call', 'calls', 'appointment',
+    'appointments', 'am i meeting', 'any meetings', 'next meeting',
+  ],
+  schedule: ['schedule', 'calendar', 'day', 'today', 'tomorrow', 'plan', 'diary', 'next up'],
   projects: ['project', 'projects', 'status', 'health', 'progress', 'how is', 'how are', 'going'],
   activity: ['happened', 'changed', 'since', 'yesterday', 'recent', 'latest', 'update', 'updates', 'news', 'activity'],
   inbox: ['my inbox', 'messages', 'guidance', 'replied', 'reply', 'acknowledge', 'told me'],
@@ -213,6 +222,7 @@ const CAPABILITIES = [
   'what is on your schedule today or tomorrow',
   'what changed in the last twenty-four hours',
   'who has not filed an update',
+  'what meetings you have today, and what each one is about',
 ];
 
 export function answerQuestion(question: string, user: UserRow | undefined): Answer {
@@ -271,6 +281,8 @@ export function answerQuestion(question: string, user: UserRow | undefined): Ans
       return answerActivity();
     case 'inbox':
       return answerInbox(user);
+    case 'meetings':
+      return answerMeetings(user);
     case 'quiet':
       return answerQuiet();
     case 'guide':
@@ -631,6 +643,37 @@ function answerQuiet(): Answer {
     detail: missing.map((person) => `${person.name} - ${gapLabel(person)}`),
     tone: overdue.length ? 'blocked' : 'risk',
     href: '/',
+    unanswered: false,
+  };
+}
+
+/** Meetings specifically, with who and what. */
+function answerMeetings(user: UserRow | undefined): Answer {
+  const meetings = getTodaysMeetings(user?.id ?? 0);
+
+  if (meetings.length === 0) {
+    return {
+      speech: 'You have no meetings on the plan for today. Anything on it is your own time.',
+      detail: [],
+      tone: 'ok',
+      href: '/schedule',
+      unanswered: false,
+    };
+  }
+
+  const ahead = meetings.filter((alert) => alert.urgency !== 'past');
+
+  return {
+    speech: ahead.length
+      ? `${ahead.length} ${ahead.length === 1 ? 'meeting' : 'meetings'} still ahead today. ${ahead[0].headline}`
+      : 'Every meeting today is behind you.',
+    detail: meetings.map((alert) => {
+      const who = alert.item.with_whom ? ` with ${alert.item.with_whom}` : '';
+      const what = alert.item.topic ? ` about ${alert.item.topic}` : '';
+      return `${clock(alert.item.start_at)}-${clock(alert.item.end_at)} ${alert.item.title}${who}${what}`;
+    }),
+    tone: ahead.length ? 'risk' : 'neutral',
+    href: '/schedule',
     unanswered: false,
   };
 }

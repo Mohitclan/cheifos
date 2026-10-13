@@ -29,6 +29,58 @@ export interface ProposedBlock {
   sourceText: string;
   isAssumedDuration: boolean;
   isAssumedTime: boolean;
+
+  /**
+   * A block you owe someone else your attendance at is different from an hour
+   * you set aside for yourself: missing it costs somebody else their time.
+   * That difference is what makes an alert worth showing at all.
+   */
+  kind: 'meeting' | 'focus';
+  /** Who the meeting is with, read from the request. Null when not stated. */
+  withWhom: string | null;
+  /** What it is about. Null when not stated - never inferred from the title. */
+  topic: string | null;
+}
+
+/**
+ * Reads "meet Finance about pricing" into its parts.
+ *
+ * Only an explicit cue makes something a meeting. "Review the Arcil project"
+ * is work, not an appointment, and promoting it to one would put a false
+ * obligation in front of the CEO.
+ */
+export function parseMeeting(clause: string): {
+  isMeeting: boolean;
+  withWhom: string | null;
+  topic: string | null;
+} {
+  const text = clause.toLowerCase();
+  const cue = /(meet|meeting|call|sync|catch up|catch-up|1:1|one on one|standup|stand-up|review with|interview|demo (?:to|for|with))/;
+  if (!cue.test(text)) return { isMeeting: false, withWhom: null, topic: null };
+
+  // Who: after "with", or straight after "meet".
+  let withWhom: string | null = null;
+  const withMatch = text.match(/with\s+(?:the\s+)?([a-z0-9 .&'-]{2,40}?)(?=\s+(?:about|on|re|regarding|to discuss|for|at|from|$)|[,.]|$)/);
+  const meetMatch = text.match(/meet(?:ing)?\s+(?:with\s+)?(?:the\s+)?([a-z0-9 .&'-]{2,40}?)(?=\s+(?:about|on|re|regarding|to discuss|for|at|from|$)|[,.]|$)/);
+  const raw = (withMatch?.[1] ?? meetMatch?.[1] ?? '').trim();
+  if (raw && !/^(?:them|him|her|us|it)$/.test(raw)) withWhom = titleCase(raw);
+
+  // Topic: after "about" / "on" / "regarding" / "to discuss".
+  const topicMatch = text.match(/(?:about|regarding|re|to discuss|on the topic of)\s+([a-z0-9 .&'-]{2,60}?)(?=\s+(?:at|from|with|for)|[,.]|$)/);
+  const topic = topicMatch?.[1]?.trim() ? sentenceCase(topicMatch[1].trim()) : null;
+
+  return { isMeeting: true, withWhom, topic };
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function sentenceCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export interface Conflict {
@@ -200,6 +252,7 @@ export function planDay(input: string, planDate: string): Proposal {
     priority: 'high' | 'medium' | 'low';
     start: { hour: number; minute: number; explicit: boolean } | null;
     order: number;
+    meeting: ReturnType<typeof parseMeeting>;
   }
 
   const drafts: Draft[] = [];
@@ -219,6 +272,7 @@ export function planDay(input: string, planDate: string): Proposal {
       priority: parsePriority(clause),
       start: parseStart(clause, base),
       order: index,
+      meeting: parseMeeting(clause),
     });
   });
 
@@ -243,6 +297,9 @@ export function planDay(input: string, planDate: string): Proposal {
       sourceText: draft.sourceText,
       isAssumedDuration: draft.assumedDuration,
       isAssumedTime: assumedTime,
+      kind: draft.meeting.isMeeting ? 'meeting' : 'focus',
+      withWhom: draft.meeting.withWhom,
+      topic: draft.meeting.topic,
     });
   };
 

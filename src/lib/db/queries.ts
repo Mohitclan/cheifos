@@ -103,6 +103,9 @@ export interface ScheduleRow {
   source_text: string | null;
   is_assumed_duration: number;
   is_assumed_time: number;
+  kind: 'meeting' | 'focus';
+  with_whom: string | null;
+  topic: string | null;
   plan_date: string;
   status: 'proposed' | 'approved' | 'discarded';
 }
@@ -372,7 +375,7 @@ export function getMessage(id: number): MessageRow | undefined {
 export function getScheduleForDate(ownerId: number, planDate: string): ScheduleRow[] {
   return all<ScheduleRow>(
     `SELECT id, title, start_at, end_at, priority, source_text,
-            is_assumed_duration, is_assumed_time, plan_date, status
+            is_assumed_duration, is_assumed_time, kind, with_whom, topic, plan_date, status
      FROM schedule_items
      WHERE owner_id = ? AND plan_date = ? AND status != 'discarded'
      ORDER BY start_at`,
