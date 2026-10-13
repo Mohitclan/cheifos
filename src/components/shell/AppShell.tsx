@@ -100,6 +100,21 @@ export async function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
+          {/* The sidebar is hidden below lg, so navigation moves here rather
+              than disappearing on a narrow window. */}
+          <nav className="flex gap-1 overflow-x-auto border-t border-navy-800 px-4 py-2 lg:hidden">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-navy-200 transition-colors hover:bg-navy-800 hover:text-white"
+              >
+                <item.icon size={14} className="text-navy-300" aria-hidden />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
           <p className="border-t border-navy-800 bg-navy-950 px-5 py-1.5 text-[11px] text-navy-300">
             <strong className="font-semibold text-navy-200">Not authenticated.</strong> Identity switching here is a
             demo control, not security. Production requires server-enforced authentication, authorisation and
