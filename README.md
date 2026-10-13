@@ -47,6 +47,7 @@ so the counts after a reset match the counts you rehearsed with.
 
 | Route | Who | What it does |
 | --- | --- | --- |
+| `/chief` | CEO | Daily Brief: an avatar that reads the state of the workspace aloud and answers questions about it |
 | `/` | CEO | Command Center: KPIs computed from records, project health with drill-down, high-priority blockers with their priority reasons, schedule preview, recent updates and activity |
 | `/decisions` | CEO | Decision Inbox: original wording beside the extracted fields, why each item is prioritised, an editable draft response, approve-and-send or ask-for-clarification |
 | `/employee` | Team | Workspace: write an update, review what was read from it, correct any field, submit; inbox with acknowledgement |
@@ -54,6 +55,30 @@ so the counts after a reset match the counts you rehearsed with.
 | `/activity` | Audit | Flat reverse-chronological audit trail |
 
 ---
+
+## The avatar (`/chief`)
+
+Press **Brief me** and a stylised chief-of-staff figure speaks the current state of the workspace: what
+needs a decision, which projects need attention, what is due, what is on your day, what changed in the
+last twenty-four hours. Then ask it questions in your own words.
+
+How it is built, and why that way:
+
+- **The briefing is composed, not generated.** `buildBriefing()` in `src/lib/chief/briefing.ts` assembles
+  every sentence from counts and fields read out of the database a moment earlier. It cannot say anything
+  that is not true of an actual row, which is the only reason it is safe to let something speak this
+  confidently.
+- **Questions route to intents, not to a model.** `answerQuestion()` in `src/lib/chief/ask.ts` scores the
+  question against a fixed set of intents, matches any project or person named in it, and runs a real
+  query. Ask about something outside that set - next quarter's revenue, say - and it tells you it cannot
+  answer from the records rather than improvising. That refusal is a feature, and it is labelled on screen.
+- **The voice is the browser's own speech synthesis.** No account, no API key, no audio leaves the machine,
+  and it works with the wi-fi off. Where the API is missing the panel runs as text and says so.
+- **The figure is deliberately stylised.** A photoreal face delivering machine-assembled sentences borrows
+  a kind of trust this system is trying not to borrow. All of its movement is CSS, so it animates without
+  a single React re-render and stops dead when you press stop or mute.
+- **It is read-only.** The panel calls two server actions, both of which only read. It cannot approve,
+  send, or change anything - that stays where it belongs.
 
 ## The guardrails, and where they live in the code
 
@@ -113,7 +138,8 @@ structured-output spec).
 
 ## Demo script (four minutes, seven beats)
 
-1. **Command Center.** Open with the guardrail, not the feature: "nothing in this system sends a message
+1. **Daily Brief.** Press **Brief me** and let it talk for twenty seconds, then ask it "what needs me
+   today?". Open with the guardrail, not the feature: "nothing in this system sends a message
    or closes a blocker without a human pressing approve." Then: these numbers are computed from records.
 2. **Employee submits.** Switch to Aanya Sharma, click **Blocked on Finance (scripted)**, press **Check
    what this says**, then *edit a field in front of the room* before submitting.

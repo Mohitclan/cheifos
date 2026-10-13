@@ -62,6 +62,67 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ---------------------------------------------------------------------------
+   Chief-of-staff avatar.
+
+   All of its movement lives here rather than in React state: the figure
+   animates at 60fps without a single re-render, and muting or stopping the
+   voice stops the motion by swapping one class.
+   --------------------------------------------------------------------------- */
+
+/* Resting breath, so an idle figure does not look frozen or broken. */
+@keyframes chief-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.012); }
+}
+
+/* Blink. Mostly open, with a brief squash - the short keyframe window is what
+   stops it reading as a loading spinner. */
+@keyframes chief-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+/* Mouth movement while speaking. Irregular on purpose; an even rhythm looks
+   like a metronome rather than speech. */
+@keyframes chief-mouth {
+  0% { transform: scaleY(0.6); }
+  18% { transform: scaleY(2.1); }
+  33% { transform: scaleY(0.8); }
+  51% { transform: scaleY(1.9); }
+  67% { transform: scaleY(0.7); }
+  84% { transform: scaleY(1.6); }
+  100% { transform: scaleY(0.6); }
+}
+
+@keyframes chief-level {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(3.2); }
+}
+
+@keyframes chief-ring {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.chief-breathe { animation: chief-breathe 4s ease-in-out infinite; }
+.chief-blink { animation: chief-blink 6s ease-in-out infinite; transform-origin: center 51px; }
+.chief-mouth { animation: chief-mouth 620ms ease-in-out infinite; }
+.chief-level { animation: chief-level 540ms ease-in-out infinite; }
+.chief-ring { animation: chief-ring 3s linear infinite; transform-origin: 60px 60px; }
+
+/* Respect the system setting: no looping motion for anyone who has asked for
+   less of it. The avatar still changes state, it just does not animate. */
+@media (prefers-reduced-motion: reduce) {
+  .chief-breathe,
+  .chief-blink,
+  .chief-mouth,
+  .chief-level,
+  .chief-ring {
+    animation: none;
+  }
+}
+
 /* Tabular figures keep KPI numbers from shifting as they change. */
 .numeric {
   font-variant-numeric: tabular-nums;

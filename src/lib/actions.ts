@@ -17,7 +17,9 @@ import { getProvider } from '@/lib/ai/provider';
 import { extractionSchema, emptyExtraction, type Extraction } from '@/lib/ai/types';
 import { buildEscalation, clarificationRequest, draftResponse } from '@/lib/escalation';
 import { planDay, type Proposal } from '@/lib/schedule/plan';
-import { setIdentity } from '@/lib/demo/session';
+import { getCurrentUser, setIdentity } from '@/lib/demo/session';
+import { buildBriefing, type Briefing } from '@/lib/chief/briefing';
+import { answerQuestion, type Answer } from '@/lib/chief/ask';
 import { seedDemoWorkspace } from '@/lib/demo/seed';
 
 /**
@@ -34,7 +36,7 @@ import { seedDemoWorkspace } from '@/lib/demo/seed';
  *   - Nothing is sent or closed without an explicit human action.
  */
 
-const ALL_PATHS = ['/', '/decisions', '/employee', '/schedule', '/activity'];
+const ALL_PATHS = ['/', '/chief', '/decisions', '/employee', '/schedule', '/activity'];
 
 function revalidateAll(): void {
   for (const path of ALL_PATHS) revalidatePath(path);
@@ -747,4 +749,22 @@ export async function resetDemo(): Promise<SubmitResult> {
   } catch (err) {
     return { ok: false, message: 'Reset failed.', error: (err as Error).message };
   }
+}
+
+// --------------------------------------------------------------------------
+// Chief of staff panel
+// --------------------------------------------------------------------------
+
+/**
+ * The spoken briefing and the question answering behind the avatar.
+ *
+ * Both are read-only and both run server-side, so the panel can never say
+ * something that is not in the database - and cannot change anything either.
+ */
+export async function getBriefing(): Promise<Briefing> {
+  return buildBriefing(await getCurrentUser());
+}
+
+export async function askChief(question: string): Promise<Answer> {
+  return answerQuestion(question, await getCurrentUser());
 }

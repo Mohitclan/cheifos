@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Activity, CalendarRange, LayoutDashboard, MessageSquareWarning, PenLine, ShieldAlert } from 'lucide-react';
+import {
+  Activity,
+  CalendarRange,
+  LayoutDashboard,
+  MessageSquareWarning,
+  PenLine,
+  ShieldAlert,
+  Speech,
+} from 'lucide-react';
 import { providerStatus } from '@/lib/ai/provider';
 import { getUsers } from '@/lib/db/queries';
 import { getCurrentUser } from '@/lib/demo/session';
@@ -19,6 +27,7 @@ import { ResetButton } from './ResetButton';
  */
 
 const NAV = [
+  { href: '/chief', label: 'Daily Brief', icon: Speech, role: 'CEO' },
   { href: '/', label: 'Command Center', icon: LayoutDashboard, role: 'CEO' },
   { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning, role: 'CEO' },
   { href: '/schedule', label: 'Schedule', icon: CalendarRange, role: 'CEO' },
