@@ -48,6 +48,7 @@ type Intent =
   | 'projects'
   | 'activity'
   | 'inbox'
+  | 'guide'
   | 'capabilities';
 
 /** Keyword sets per intent. Scored by how many distinct terms appear. */
@@ -59,8 +60,108 @@ const INTENT_TERMS: Record<Intent, string[]> = {
   projects: ['project', 'projects', 'status', 'health', 'progress', 'how is', 'how are', 'going'],
   activity: ['happened', 'changed', 'since', 'yesterday', 'recent', 'latest', 'update', 'updates', 'news', 'activity'],
   inbox: ['my inbox', 'messages', 'guidance', 'replied', 'reply', 'acknowledge', 'told me'],
+  guide: [
+    'where do i', 'where can i', 'where is', 'how do i', 'how can i', 'how to',
+    'what should i do', 'what do i do', 'take me', 'show me where', 'guide me',
+    'walk me', 'find the', 'which page', 'where would i',
+  ],
   capabilities: ['what can you', 'help', 'who are you', 'what do you do', 'commands', 'ask you'],
 };
+
+/** Phrasings that mean "show me how", whatever the task turns out to be. */
+const GUIDE_TRIGGERS = [
+  'where do i', 'where can i', 'where is the', 'where would i', 'which page',
+  'how do i', 'how can i', 'how to ', 'what should i do', 'what do i do',
+  'take me to', 'show me where', 'guide me', 'walk me through',
+];
+
+/**
+ * Where each task lives and what doing it actually involves.
+ *
+ * This is the "show me where" half of the assistant. Matching is on the verb
+ * the person used, not on the page name, because someone asking for help does
+ * not know what the page is called yet.
+ */
+const GUIDE_STEPS: Array<{ terms: string[]; task: string; where: string; href: string; steps: string[] }> = [
+  {
+    terms: ['approve', 'respond', 'reply to', 'answer', 'decision', 'decide', 'guidance', 'send'],
+    task: 'Respond to something that needs your decision',
+    where: 'Decision Inbox',
+    href: '/decisions',
+    steps: [
+      'Each card shows the original wording beside what was read from it, and why it is prioritised.',
+      'Edit the drafted response - it is a draft, nothing has been sent.',
+      'Press Approve and send. That is the only thing that sends it.',
+      'If it is not clear enough to answer, use Ask for clarification instead.',
+    ],
+  },
+  {
+    terms: ['comment', 'discuss', 'talk about', 'note on', 'thread'],
+    task: 'Discuss a blocker without deciding it yet',
+    where: 'Decision Inbox, under each blocker',
+    href: '/decisions',
+    steps: [
+      'Open Discuss this blocker at the bottom of the card.',
+      'Comments stay on the blocker. They are not sent to anyone and do not change its status.',
+      'Use this when you want to think out loud or record who you spoke to.',
+    ],
+  },
+  {
+    terms: ['plan', 'schedule', 'tomorrow', 'calendar', 'time block', 'diary'],
+    task: 'Plan your day',
+    where: 'Schedule',
+    href: '/schedule',
+    steps: [
+      'Type your priorities in plain words, the way you would say them.',
+      'Blocks are placed by the app, not by a model. Anything assumed is labelled.',
+      'Overlaps are flagged and both blocks are kept - adjust one, then approve.',
+      'Nothing is final until you press Approve.',
+    ],
+  },
+  {
+    terms: ['update', 'submit', 'report', 'standup', 'employee', 'as aanya', 'write'],
+    task: 'Submit an update as an employee',
+    where: 'Employee Workspace',
+    href: '/employee',
+    steps: [
+      'Pick the project, then write the update the way you would say it in a standup.',
+      'Press Check what this says to see the fields that were read from it.',
+      'Correct anything that is wrong - what you confirm is what gets saved.',
+      'Submit. The blocker then appears in the Decision Inbox.',
+    ],
+  },
+  {
+    terms: ['acknowledge', 'acknowledgement', 'read receipt', 'confirm receipt'],
+    task: 'Acknowledge guidance you were sent',
+    where: 'Employee Workspace, right-hand inbox',
+    href: '/employee',
+    steps: [
+      'Switch identity to the employee in the top bar.',
+      'The approved guidance is in Your inbox.',
+      'Acknowledging records that you read it. It does not resolve the blocker.',
+    ],
+  },
+  {
+    terms: ['history', 'audit', 'who did', 'trail', 'log', 'changed'],
+    task: 'See who did what, and when',
+    where: 'Activity',
+    href: '/activity',
+    steps: [
+      'Every submission, approval, send, acknowledgement and schedule approval is recorded.',
+      'This is a demo audit log, not tamper-proof compliance logging.',
+    ],
+  },
+  {
+    terms: ['reset', 'start over', 'clean', 'fresh', 'rehearse'],
+    task: 'Reset the demo data',
+    where: 'Reset demo data, top right of every page',
+    href: '/',
+    steps: [
+      'This rebuilds the fictional workspace from scratch.',
+      'Do it immediately before presenting so your counts match what you rehearsed.',
+    ],
+  },
+];
 
 function scoreIntent(question: string): { intent: Intent; score: number } {
   let best: { intent: Intent; score: number } = { intent: 'capabilities', score: 0 };
@@ -119,6 +220,14 @@ export function answerQuestion(question: string, user: UserRow | undefined): Ans
 
   // A named person or project outranks a generic keyword: "how is the pricing
   // page doing" is a question about that project, not about projects at large.
+  // "Where do I ..." is an unambiguous request for navigation, so it is
+  // settled before keyword scoring. Otherwise "where do I approve a decision"
+  // ties with the decisions intent and answers with the list instead of the
+  // directions the person actually asked for.
+  if (GUIDE_TRIGGERS.some((trigger) => text.includes(trigger))) {
+    return answerGuide(text);
+  }
+
   const projectName = matchProject(text);
   const person = matchPerson(text);
   const { intent, score } = scoreIntent(text);
@@ -153,6 +262,8 @@ export function answerQuestion(question: string, user: UserRow | undefined): Ans
       return answerActivity();
     case 'inbox':
       return answerInbox(user);
+    case 'guide':
+      return answerGuide(text);
     case 'capabilities':
     default:
       return {
@@ -416,6 +527,48 @@ function answerInbox(user: UserRow | undefined): Answer {
     ),
     tone: unread.length ? 'risk' : 'ok',
     href: '/employee',
+    unanswered: false,
+  };
+}
+
+/**
+ * "Where do I ... ?" and "how do I ... ?"
+ *
+ * Answers with the place and the steps, and returns an href so the panel can
+ * offer to open it. When the task is not one of the ones this workspace does,
+ * it lists what it can walk you through rather than improvising a procedure.
+ */
+function answerGuide(question: string): Answer {
+  let best: (typeof GUIDE_STEPS)[number] | null = null;
+  let bestScore = 0;
+
+  for (const entry of GUIDE_STEPS) {
+    let score = 0;
+    for (const term of entry.terms) {
+      if (question.includes(term)) score += term.includes(' ') ? 2 : 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = entry;
+    }
+  }
+
+  if (!best) {
+    return {
+      speech:
+        'I can walk you through the things this workspace does, but I do not want to invent a procedure for ' +
+        'something it does not. Here is what I can guide you through.',
+      detail: GUIDE_STEPS.map((entry) => `${entry.task} - ${entry.where}`),
+      tone: 'neutral',
+      unanswered: true,
+    };
+  }
+
+  return {
+    speech: `${best.task}. You do that in ${best.where}.`,
+    detail: best.steps,
+    tone: 'accent',
+    href: best.href,
     unanswered: false,
   };
 }

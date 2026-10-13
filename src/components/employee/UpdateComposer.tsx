@@ -16,7 +16,6 @@ import {
   buttonClass,
   inputClass,
 } from '@/components/ui';
-import { VoiceCapture } from './VoiceCapture';
 
 /**
  * Submit an update, review what was read from it, correct anything, send.
@@ -66,7 +65,7 @@ export function UpdateComposer({
   const [text, setText] = useState('');
   const [projectId, setProjectId] = useState<number | null>(projects[0]?.id ?? null);
   const [taskId, setTaskId] = useState<string>('');
-  const [source, setSource] = useState<'typed' | 'voice' | 'sample'>('typed');
+  const [source, setSource] = useState<'typed' | 'sample'>('typed');
 
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [providerLabel, setProviderLabel] = useState('');
@@ -183,13 +182,6 @@ export function UpdateComposer({
             </button>
           ))}
 
-          <VoiceCapture
-            onTranscript={(transcript) => {
-              setText(transcript);
-              setSource('voice');
-              setExtraction(null);
-            }}
-          />
         </div>
 
         <p className="mt-2 text-xs text-ink-400">

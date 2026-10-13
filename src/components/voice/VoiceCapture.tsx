@@ -42,7 +42,13 @@ function getRecognitionCtor(): RecognitionCtor | null {
 /** Nothing to subscribe to - API availability does not change at runtime. */
 const noSubscribe = () => () => {};
 
-export function VoiceCapture({ onTranscript }: { onTranscript: (text: string) => void }) {
+export function VoiceCapture({
+  onTranscript,
+  idleLabel = 'Dictate',
+}: {
+  onTranscript: (text: string) => void;
+  idleLabel?: string;
+}) {
   // useSyncExternalStore rather than an effect: the server snapshot is "not
   // supported", the client snapshot is the real answer, and hydration swaps
   // them without a mismatch or a cascading render.
@@ -118,7 +124,7 @@ export function VoiceCapture({ onTranscript }: { onTranscript: (text: string) =>
       title="Chrome only. Audio is processed by the browser's speech service, not locally."
     >
       {listening ? <Square size={14} aria-hidden /> : <Mic size={14} aria-hidden />}
-      {listening ? 'Stop and use transcript' : 'Dictate'}
+      {listening ? 'Stop and use transcript' : idleLabel}
     </button>
   );
 }

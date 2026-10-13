@@ -470,3 +470,35 @@ export function isSeeded(): boolean {
     return false;
   }
 }
+
+export interface CommentRow {
+  id: number;
+  blocker_id: number;
+  author_id: number;
+  author_name: string;
+  author_role: string;
+  body: string;
+  created_at: string;
+}
+
+/** Discussion on one blocker, oldest first so it reads as a conversation. */
+export function getCommentsForBlocker(blockerId: number): CommentRow[] {
+  return all<CommentRow>(
+    `SELECT c.*, u.name AS author_name, u.role AS author_role
+       FROM blocker_comments c
+       JOIN users u ON u.id = c.author_id
+      WHERE c.blocker_id = ?
+      ORDER BY c.created_at ASC`,
+    [blockerId],
+  );
+}
+
+/** Comment counts for a set of blockers, so lists can show them without N queries. */
+export function getCommentCounts(): Record<number, number> {
+  const rows = all<{ blocker_id: number; n: number }>(
+    'SELECT blocker_id, COUNT(*) AS n FROM blocker_comments GROUP BY blocker_id',
+  );
+  const counts: Record<number, number> = {};
+  for (const row of rows) counts[row.blocker_id] = Number(row.n);
+  return counts;
+}

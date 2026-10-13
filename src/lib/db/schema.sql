@@ -4,6 +4,7 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS blocker_comments;
 DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS reminders;
 DROP TABLE IF EXISTS schedule_items;
@@ -129,6 +130,17 @@ CREATE TABLE reminders (
   delivered_at     TEXT
 );
 
+-- Discussion on a specific blocker, separate from the decision flow.
+-- A comment is talk; a decision is an instruction that gets sent and
+-- acknowledged. Keeping them in different tables keeps that line visible.
+CREATE TABLE blocker_comments (
+  id         INTEGER PRIMARY KEY,
+  blocker_id INTEGER NOT NULL REFERENCES blockers(id),
+  author_id  INTEGER NOT NULL REFERENCES users(id),
+  body       TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE audit_logs (
   id            INTEGER PRIMARY KEY,
   actor_id      INTEGER REFERENCES users(id),
@@ -148,3 +160,4 @@ CREATE INDEX idx_decisions_status  ON decisions(status);
 CREATE INDEX idx_messages_recip    ON messages(recipient_id, sent_at DESC);
 CREATE INDEX idx_schedule_owner    ON schedule_items(owner_id, plan_date, start_at);
 CREATE INDEX idx_audit_created     ON audit_logs(created_at DESC);
+CREATE INDEX idx_comments_blocker  ON blocker_comments(blocker_id, created_at);

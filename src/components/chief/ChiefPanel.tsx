@@ -6,6 +6,7 @@ import { Pause, Play, RefreshCw, Send, Volume2, VolumeX } from 'lucide-react';
 import { askChief, getBriefing } from '@/lib/actions';
 import type { Briefing, BriefSegment } from '@/lib/chief/briefing';
 import type { Answer } from '@/lib/chief/ask';
+import { VoiceCapture } from '@/components/voice/VoiceCapture';
 import { Panel, Pill, buttonClass, inputClass } from '@/components/ui';
 import { Avatar, type AvatarState } from './Avatar';
 
@@ -314,6 +315,16 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="Ask me anything about the work - what needs me, what is blocked, how a project is doing"
+              />
+              {/* Speak the question instead of typing it. Asking out loud is
+                  the point of this panel; typing stays available because the
+                  Speech API is Chrome-only and dislikes a noisy room. */}
+              <VoiceCapture
+                idleLabel="Speak"
+                onTranscript={(transcript) => {
+                  setQuestion(transcript);
+                  void ask(transcript);
+                }}
               />
               <button type="submit" disabled={busy} className={buttonClass('primary')}>
                 <Send size={15} aria-hidden /> Ask

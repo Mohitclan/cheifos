@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   getCeo,
+  getCommentsForBlocker,
   getInboxBlockers,
   getResolvedBlockers,
   getSentBlockers,
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui';
 import { SeedPrompt } from '@/components/SeedPrompt';
 import { DecisionCard } from '@/components/decisions/DecisionCard';
+import { BlockerComments } from '@/components/decisions/BlockerComments';
 
 export const dynamic = 'force-dynamic';
 
@@ -266,6 +268,14 @@ function BlockerPanel({
           status={blocker.status}
         />
       )}
+
+      <div className="border-t border-line px-5 py-4">
+        <BlockerComments
+          blockerId={blocker.id}
+          authorId={ceoId}
+          comments={getCommentsForBlocker(blocker.id)}
+        />
+      </div>
     </Panel>
   );
 }

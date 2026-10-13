@@ -768,3 +768,51 @@ export async function getBriefing(): Promise<Briefing> {
 export async function askChief(question: string): Promise<Answer> {
   return answerQuestion(question, await getCurrentUser());
 }
+
+/**
+ * Adds a comment to a blocker's discussion.
+ *
+ * Deliberately separate from the decision flow: a comment is talk about the
+ * blocker, not an instruction. It does not send a message, does not create a
+ * decision, and does not change the blocker's status. Only "Approve and send"
+ * does that, and only resolving does the other.
+ */
+export async function addBlockerComment(form: FormData): Promise<SubmitResult> {
+  const blockerId = int(form, 'blockerId');
+  const authorId = int(form, 'authorId');
+  const body = text(form, 'body').trim();
+
+  if (blockerId === null || authorId === null) {
+    return { ok: false, message: 'That blocker no longer exists.' };
+  }
+  if (body.length === 0) {
+    return { ok: false, message: 'Write a comment before posting.' };
+  }
+
+  const blocker = getBlocker(blockerId);
+  const author = getUser(authorId);
+  if (!blocker || !author) return { ok: false, message: 'That blocker no longer exists.' };
+
+  try {
+    return tx(() => {
+      run('INSERT INTO blocker_comments (blocker_id, author_id, body, created_at) VALUES (?, ?, ?, ?)', [
+        blockerId,
+        authorId,
+        body,
+        nowIso(),
+      ]);
+      audit({
+        actorId: authorId,
+        action: 'blocker.commented',
+        entityType: 'blocker',
+        entityId: blockerId,
+        summary: `${author.name} commented on "${blocker.title}". The blocker status is unchanged.`,
+        metadata: { body },
+      });
+      revalidateAll();
+      return { ok: true, message: 'Comment posted.' };
+    });
+  } catch {
+    return { ok: false, message: 'Could not post that comment.' };
+  }
+}
