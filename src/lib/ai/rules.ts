@@ -76,10 +76,6 @@ const DEPARTMENT_ALIASES: Record<string, string[]> = {
   'Product Engineering': ['product engineering', 'product eng', 'engineering', 'eng', 'platform'],
 };
 
-function normalize(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
 /** Cuts a captured clause at the first sentence or conjunction boundary. */
 function trimClause(raw: string): string | null {
   let clause = raw
@@ -95,11 +91,16 @@ function trimClause(raw: string): string | null {
   return clause.length >= 3 ? clause : null;
 }
 
-function captureAfter(text: string, markers: string[]): string | null {
+/**
+ * Finds a marker in the lowercased text but returns the clause from the
+ * original, so a captured value keeps the user's own capitalisation. Both
+ * strings have whitespace collapsed identically, so the indices line up.
+ */
+function captureAfter(lower: string, original: string, markers: string[]): string | null {
   for (const marker of markers) {
-    const idx = text.indexOf(marker);
+    const idx = lower.indexOf(marker);
     if (idx === -1) continue;
-    const clause = trimClause(text.slice(idx + marker.length));
+    const clause = trimClause(original.slice(idx + marker.length));
     if (clause) return clause;
   }
   return null;
@@ -149,10 +150,14 @@ function extractDepartment(text: string, departments: string[]): string | null {
   return null;
 }
 
-function extractDeadline(text: string): string | null {
+function extractDeadline(lower: string, original: string): string | null {
   for (const pattern of DEADLINE_PATTERNS) {
-    const match = text.match(pattern);
-    if (match) return match[0].trim();
+    const match = lower.match(pattern);
+    // Returned from the original so "by Friday" keeps its capital F. This is
+    // stored verbatim: no date is resolved here.
+    if (match?.index !== undefined) {
+      return original.slice(match.index, match.index + match[0].length).trim();
+    }
   }
   return null;
 }
@@ -179,16 +184,20 @@ export function extractWithRules(text: string, ctx: ExtractionContext): Extracti
   const trimmed = text.trim();
   if (trimmed.length < 3) return emptyExtraction();
 
-  const lower = normalize(trimmed);
+  // Two views of the same text: matching happens on the lowercased one,
+  // captured values are sliced out of the original so the user's wording comes
+  // back as they wrote it. Whitespace is collapsed in both so indices align.
+  const collapsed = trimmed.replace(/\s+/g, ' ');
+  const lower = collapsed.toLowerCase();
   const inferred: string[] = [];
 
   const status = extractStatus(lower);
   const progress = extractProgress(lower, inferred);
-  const blocker = captureAfter(lower, BLOCKER_MARKERS);
+  const blocker = captureAfter(lower, collapsed, BLOCKER_MARKERS);
   const department = extractDepartment(lower, ctx.departments);
-  const help = captureAfter(lower, HELP_MARKERS);
-  const risk = captureAfter(lower, RISK_MARKERS);
-  const deadline = extractDeadline(lower);
+  const help = captureAfter(lower, collapsed, HELP_MARKERS);
+  const risk = captureAfter(lower, collapsed, RISK_MARKERS);
+  const deadline = extractDeadline(lower, collapsed);
   const project = matchFromList(lower, ctx.projects);
   const task = matchFromList(lower, ctx.tasks);
 

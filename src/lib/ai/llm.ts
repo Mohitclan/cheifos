@@ -61,7 +61,8 @@ function buildPrompt(text: string, ctx: ExtractionContext): string {
   ].join('\n');
 }
 
-async function callModel(_prompt: string): Promise<unknown> {
+async function callModel(prompt: string): Promise<unknown> {
+  void prompt; // Used by the implementation that replaces the throw below.
   // ---------------------------------------------------------------------
   // IMPLEMENT ME.
   //

@@ -39,14 +39,25 @@ export function initSchema(db: DatabaseSync = getDb()): void {
 
 type Params = ReadonlyArray<string | number | null | bigint | Uint8Array>;
 
+/**
+ * node:sqlite returns rows with a null prototype. React refuses to pass those
+ * from a Server Component into a Client Component ("Classes or null prototypes
+ * are not supported"), so every row is rehydrated into a plain object here -
+ * once, at the boundary, rather than at each call site.
+ */
+function plain<T>(row: unknown): T {
+  return { ...(row as Record<string, unknown>) } as T;
+}
+
 /** SELECT returning many rows. */
 export function all<T>(sql: string, params: Params = []): T[] {
-  return getDb().prepare(sql).all(...params) as T[];
+  return (getDb().prepare(sql).all(...params) as unknown[]).map((row) => plain<T>(row));
 }
 
 /** SELECT returning one row, or undefined. */
 export function one<T>(sql: string, params: Params = []): T | undefined {
-  return getDb().prepare(sql).get(...params) as T | undefined;
+  const row = getDb().prepare(sql).get(...params);
+  return row === undefined ? undefined : plain<T>(row);
 }
 
 /** INSERT/UPDATE/DELETE. Returns the new rowid for inserts. */

@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
+/**
+ * ChiefOS visual system.
+ *
+ * Deliberately narrow: a navy sidebar, a neutral workspace, one teal accent,
+ * and a four-colour status scale. Light theme only - a demo is projected in a
+ * room with unknown display settings, and a surprise dark mode is a risk with
+ * no upside.
+ */
+
+@theme {
+  --color-navy-950: #0b1220;
+  --color-navy-900: #111b2e;
+  --color-navy-800: #1a2740;
+  --color-navy-700: #243352;
+  --color-navy-300: #8fa0bf;
+  --color-navy-200: #b9c5da;
+
+  --color-surface: #f5f6f8;
+  --color-panel: #ffffff;
+  --color-line: #e3e6ec;
+  --color-line-strong: #cbd2dd;
+
+  --color-ink-900: #121722;
+  --color-ink-700: #37404f;
+  --color-ink-500: #5d6878;
+  --color-ink-400: #7d8798;
+
+  --color-accent-700: #0f6f6a;
+  --color-accent-600: #12857e;
+  --color-accent-500: #16a39a;
+  --color-accent-100: #dcf3f1;
+
+  --color-blocked-700: #9a2a2a;
+  --color-blocked-500: #c0392b;
+  --color-blocked-100: #fbe6e3;
+
+  --color-risk-700: #8a5a0b;
+  --color-risk-500: #c07d14;
+  --color-risk-100: #fdf0da;
+
+  --color-ok-700: #1f6b45;
+  --color-ok-500: #2b9160;
+  --color-ok-100: #e2f3ea;
+
+  --color-done-700: #44506a;
+  --color-done-100: #eceff5;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures keep KPI numbers from shifting as they change. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Used wherever the original wording of an update is shown. It must always
+   read as a quotation of a person, never as generated text. */
+.transcript {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+textarea,
+input,
+select {
+  font: inherit;
+}
+
+::placeholder {
+  color: var(--color-ink-400);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
 }
