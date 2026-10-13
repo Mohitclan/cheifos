@@ -9,6 +9,7 @@ import {
   proposeSchedule,
   updateScheduleItem,
 } from '@/lib/actions';
+import { VoiceCapture } from '@/components/voice/VoiceCapture';
 import { DEMO_SCHEDULE_REQUEST } from '@/lib/demo/constants';
 import {
   AssumptionTag,
@@ -103,6 +104,21 @@ export function SchedulePlanner({
             <Wand2 size={15} aria-hidden />
             {pending ? 'Placing blocks...' : 'Propose a schedule'}
           </button>
+
+          {/* Speak the day instead of typing it. The transcript lands in the
+              box first and proposes from there, so what was heard is visible
+              and editable before any block is placed. */}
+          <VoiceCapture
+            idleLabel="Speak your day"
+            onTranscript={(transcript) => {
+              setRequest(transcript);
+              const form = new FormData();
+              form.set('ownerId', String(ownerId));
+              form.set('planDate', planDate);
+              form.set('request', transcript);
+              run(proposeSchedule, form);
+            }}
+          />
 
           <button
             type="button"

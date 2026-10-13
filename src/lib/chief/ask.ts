@@ -7,6 +7,7 @@ import {
   getMessagesForUser,
   getProjects,
   getRecentUpdates,
+  getNextScheduledDate,
   getScheduleForDate,
   getSentBlockers,
   getTasksForProject,
@@ -14,7 +15,7 @@ import {
   getUsers,
   type UserRow,
 } from '@/lib/db/queries';
-import { ago, clock, dueLabel, todayIso, tomorrowIso } from '@/lib/format';
+import { ago, clock, dayShort, dueLabel, todayIso, tomorrowIso } from '@/lib/format';
 
 /**
  * Question answering for the chief-of-staff panel.
@@ -361,6 +362,25 @@ function answerSchedule(user: UserRow | undefined): Answer {
   const tomorrow = getScheduleForDate(ownerId, tomorrowIso());
 
   if (today.length === 0 && tomorrow.length === 0) {
+    // Only looking at today and tomorrow meant a day planned for later in the
+    // week was reported as "nothing scheduled", which is worse than unhelpful
+    // - it is wrong about the person's own calendar.
+    const nextDate = getNextScheduledDate(ownerId, tomorrowIso());
+    if (nextDate) {
+      const upcoming = getScheduleForDate(ownerId, nextDate);
+      return {
+        speech:
+          `Today and tomorrow are both clear. Your next planned day is ${dayShort(`${nextDate}T09:00:00`)}, ` +
+          `with ${upcoming.length} ${upcoming.length === 1 ? 'block' : 'blocks'}.`,
+        detail: upcoming.map(
+          (item) => `${clock(item.start_at)}-${clock(item.end_at)} ${item.title} (${item.status})`,
+        ),
+        tone: 'neutral',
+        href: `/schedule?date=${nextDate}`,
+        unanswered: false,
+      };
+    }
+
     return {
       speech: 'You have nothing scheduled for today or tomorrow. Tell me your priorities and I will propose blocks.',
       detail: [],
