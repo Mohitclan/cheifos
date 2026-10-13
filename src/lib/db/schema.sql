@@ -66,7 +66,10 @@ CREATE TABLE updates (
   original_text TEXT NOT NULL,
   transcript    TEXT,
   extracted_json TEXT NOT NULL,
-  source        TEXT NOT NULL DEFAULT 'typed' CHECK (source IN ('typed', 'voice', 'sample')),
+  source        TEXT NOT NULL DEFAULT 'typed' CHECK (source IN ('typed', 'voice', 'sample', 'imported')),
+  -- Identity of this update in the system it was imported from. UNIQUE so a
+  -- repeated sync cannot create the same update twice.
+  external_id   TEXT UNIQUE,
   status        TEXT NOT NULL DEFAULT 'submitted',
   created_at    TEXT NOT NULL
 );
