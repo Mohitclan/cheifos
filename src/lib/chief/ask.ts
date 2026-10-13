@@ -16,6 +16,7 @@ import {
   type UserRow,
 } from '@/lib/db/queries';
 import { ago, clock, dayShort, dueLabel, todayIso, tomorrowIso } from '@/lib/format';
+import { gapLabel, getMissingToday } from '@/lib/reporting';
 
 /**
  * Question answering for the chief-of-staff panel.
@@ -49,6 +50,7 @@ type Intent =
   | 'projects'
   | 'activity'
   | 'inbox'
+  | 'quiet'
   | 'guide'
   | 'capabilities';
 
@@ -61,6 +63,11 @@ const INTENT_TERMS: Record<Intent, string[]> = {
   projects: ['project', 'projects', 'status', 'health', 'progress', 'how is', 'how are', 'going'],
   activity: ['happened', 'changed', 'since', 'yesterday', 'recent', 'latest', 'update', 'updates', 'news', 'activity'],
   inbox: ['my inbox', 'messages', 'guidance', 'replied', 'reply', 'acknowledge', 'told me'],
+  quiet: [
+    'who has not', 'who hasn', 'not reported', 'not filed', 'not submitted',
+    'who is quiet', 'who went quiet', 'missing update', 'missing updates',
+    'who is missing', 'nobody heard', 'not heard from', 'silent', 'no update from',
+  ],
   guide: [
     'where do i', 'where can i', 'where is', 'how do i', 'how can i', 'how to',
     'what should i do', 'what do i do', 'take me', 'show me where', 'guide me',
@@ -205,6 +212,7 @@ const CAPABILITIES = [
   'what a particular person last reported',
   'what is on your schedule today or tomorrow',
   'what changed in the last twenty-four hours',
+  'who has not filed an update',
 ];
 
 export function answerQuestion(question: string, user: UserRow | undefined): Answer {
@@ -263,6 +271,8 @@ export function answerQuestion(question: string, user: UserRow | undefined): Ans
       return answerActivity();
     case 'inbox':
       return answerInbox(user);
+    case 'quiet':
+      return answerQuiet();
     case 'guide':
       return answerGuide(text);
     case 'capabilities':
@@ -589,6 +599,38 @@ function answerGuide(question: string): Answer {
     detail: best.steps,
     tone: 'accent',
     href: best.href,
+    unanswered: false,
+  };
+}
+
+/**
+ * Who has gone quiet. The only answer here built from absent records rather
+ * than present ones, so it says plainly what it is counting.
+ */
+function answerQuiet(): Answer {
+  const missing = getMissingToday();
+
+  if (missing.length === 0) {
+    return {
+      speech: 'Everyone has filed an update today. Nobody has gone quiet.',
+      detail: [],
+      tone: 'ok',
+      unanswered: false,
+    };
+  }
+
+  const overdue = missing.filter((person) => person.severity === 'overdue');
+
+  return {
+    speech:
+      `${missing.length} ${missing.length === 1 ? 'person has' : 'people have'} not filed today. ` +
+      (overdue.length
+        ? `${overdue.length} of them ${overdue.length === 1 ? 'is' : 'are'} three or more working days behind, ` +
+          `starting with ${overdue[0].name}.`
+        : 'None of them are more than a day or two behind.'),
+    detail: missing.map((person) => `${person.name} - ${gapLabel(person)}`),
+    tone: overdue.length ? 'blocked' : 'risk',
+    href: '/',
     unanswered: false,
   };
 }

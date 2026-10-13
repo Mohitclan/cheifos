@@ -515,3 +515,33 @@ export function getUserByUsername(username: string):
     [username.trim().toLowerCase()],
   );
 }
+
+export interface ReportingRow {
+  id: number;
+  name: string;
+  title: string | null;
+  department_name: string | null;
+  last_update_at: string | null;
+  last_update_date: string | null;
+}
+
+/**
+ * Last update per employee, oldest first.
+ *
+ * The dashboard's blind spot is the person who went quiet: a view built only
+ * from what was reported cannot show you who stopped reporting, which is
+ * exactly where the risk tends to sit.
+ */
+export function getReportingStatus(): ReportingRow[] {
+  return all<ReportingRow>(
+    `SELECT u.id, u.name, u.title, d.name AS department_name,
+            MAX(up.created_at)      AS last_update_at,
+            MAX(date(up.created_at)) AS last_update_date
+       FROM users u
+       LEFT JOIN departments d ON d.id = u.department_id
+       LEFT JOIN updates up    ON up.employee_id = u.id
+      WHERE u.role = 'employee'
+      GROUP BY u.id
+      ORDER BY last_update_at IS NULL DESC, last_update_at ASC`,
+  );
+}

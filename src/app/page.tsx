@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireCeo } from '@/lib/auth/guard';
+import { gapLabel, getMissingToday } from '@/lib/reporting';
 import { ArrowUpRight } from 'lucide-react';
 import {
   getAuditTrail,
@@ -33,6 +34,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
   const signedIn = await requireCeo();
+  const missingToday = getMissingToday();
   if (!isSeeded()) return <SeedPrompt />;
 
   const current = signedIn;
@@ -146,6 +148,41 @@ export default async function CommandCenter() {
 
               <p className="mt-2 text-xs leading-relaxed text-ink-500">{blocker.priority_reason}</p>
             </article>
+          ))
+        )}
+      </Panel>
+
+      {/* Built from what was NOT reported. Everything else on this page is
+          built from what was - which is precisely why this panel exists. */}
+      <Panel
+        title="Not reported yet"
+        subtitle="Counted in working days. Silence is the one thing the rest of this page cannot show you."
+        bodyClassName="divide-y divide-line"
+      >
+        {missingToday.length === 0 ? (
+          <div className="px-5 py-4">
+            <EmptyState
+              title="Everyone has filed today"
+              body="Every team member has submitted an update for today."
+            />
+          </div>
+        ) : (
+          missingToday.map((person) => (
+            <div key={person.id} className="flex items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink-900">{person.name}</p>
+                <p className="text-xs text-ink-500">
+                  {person.title}
+                  {person.department_name ? ` · ${person.department_name}` : ''}
+                </p>
+              </div>
+              <span className="text-xs text-ink-500">{gapLabel(person)}</span>
+              {person.severity === 'overdue' ? (
+                <Pill tone="blocked">Overdue</Pill>
+              ) : (
+                <Pill tone="risk">Watch</Pill>
+              )}
+            </div>
           ))
         )}
       </Panel>
