@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ChiefOS
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
+.env.local
