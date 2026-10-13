@@ -7,7 +7,7 @@ import {
   getUsers,
   isSeeded,
 } from '@/lib/db/queries';
-import { getCurrentUser } from '@/lib/demo/session';
+import { requireUser } from '@/lib/auth/guard';
 import { ago, fieldLabel, timestamp } from '@/lib/format';
 import type { Extraction } from '@/lib/ai/types';
 import { AssumptionTag, EmptyState, Panel, Pill, StatusPill, Transcript } from '@/components/ui';
@@ -31,11 +31,11 @@ const SUMMARY_FIELDS: Array<keyof Extraction> = [
 export default async function EmployeeWorkspace() {
   if (!isSeeded()) return <SeedPrompt />;
 
-  const current = await getCurrentUser();
+  // You are always yourself here. There is no identity picker any more, so an
+  // employee can only ever write as themselves and read their own inbox.
+  const signedIn = await requireUser();
   const employees = getUsers().filter((u) => u.role === 'employee');
-  // The CEO viewing this page writes as the first employee rather than seeing
-  // a broken form; the identity switcher in the top bar is how you change it.
-  const employee = current?.role === 'employee' ? current : employees[0];
+  const employee = signedIn.role === 'employee' ? signedIn : employees[0];
 
   if (!employee) {
     return (

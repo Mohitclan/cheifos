@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { requireCeo } from '@/lib/auth/guard';
 import { ArrowUpRight } from 'lucide-react';
 import {
   getAuditTrail,
@@ -13,8 +14,7 @@ import {
   getUpdatesForProject,
   isSeeded,
 } from '@/lib/db/queries';
-import { getCurrentUser } from '@/lib/demo/session';
-import { getCeo } from '@/lib/db/queries';
+
 import { ago, clock, day, dueLabel, timestamp, todayIso, tomorrowIso } from '@/lib/format';
 import {
   AssumptionTag,
@@ -32,10 +32,11 @@ import { SeedPrompt } from '@/components/SeedPrompt';
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
+  const signedIn = await requireCeo();
   if (!isSeeded()) return <SeedPrompt />;
 
-  const current = await getCurrentUser();
-  const ceo = getCeo();
+  const current = signedIn;
+  const ceo = signedIn;
   const kpis = getKpis();
   const projects = getProjects();
   const blockers = getTopBlockers(4);

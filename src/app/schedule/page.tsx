@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getCeo, getScheduleForDate, isSeeded } from '@/lib/db/queries';
-import { getCurrentUser } from '@/lib/demo/session';
+import { requireCeo } from '@/lib/auth/guard';
+import { getScheduleForDate, isSeeded } from '@/lib/db/queries';
 import { findRowConflicts } from '@/lib/schedule/plan';
 import { WORKDAY } from '@/lib/demo/constants';
 import { clock, dayShort, todayIso, tomorrowIso } from '@/lib/format';
@@ -15,11 +15,12 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  const signedIn = await requireCeo();
   if (!isSeeded()) return <SeedPrompt />;
 
   const params = await searchParams;
-  const ceo = getCeo();
-  const current = await getCurrentUser();
+  const ceo = signedIn;
+  const current = signedIn;
   const owner = ceo ?? current;
 
   if (!owner) {

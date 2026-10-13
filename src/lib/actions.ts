@@ -17,7 +17,7 @@ import { getProvider } from '@/lib/ai/provider';
 import { extractionSchema, emptyExtraction, type Extraction } from '@/lib/ai/types';
 import { buildEscalation, clarificationRequest, draftResponse } from '@/lib/escalation';
 import { planDay, type Proposal } from '@/lib/schedule/plan';
-import { getCurrentUser, setIdentity } from '@/lib/demo/session';
+import { authorize } from '@/lib/auth/guard';
 import { buildBriefing, type Briefing } from '@/lib/chief/briefing';
 import { answerQuestion, type Answer } from '@/lib/chief/ask';
 import { seedDemoWorkspace } from '@/lib/demo/seed';
@@ -65,13 +65,6 @@ function int(form: FormData, key: string): number | null {
 // Demo identity (NOT authentication - see src/lib/demo/session.ts)
 // --------------------------------------------------------------------------
 
-export async function switchIdentity(form: FormData): Promise<void> {
-  const id = int(form, 'userId');
-  if (id === null) return;
-  await setIdentity(id);
-  revalidateAll();
-}
-
 // --------------------------------------------------------------------------
 // Extraction preview
 // --------------------------------------------------------------------------
@@ -93,6 +86,8 @@ export async function previewExtraction(input: {
   employeeId: number;
   projectId: number | null;
 }): Promise<PreviewResult> {
+  const auth = await authorize();
+  if (!auth.ok) throw new Error(auth.message);
   const provider = getProvider();
   const projects = getProjectsForEmployee(input.employeeId);
   const tasks = input.projectId ? getTasksForProject(input.projectId) : [];
@@ -137,6 +132,8 @@ export interface SubmitResult {
  * and a draft response for the CEO.
  */
 export async function submitUpdate(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize();
+  if (!auth.ok) return { ok: false, message: auth.message };
   const employeeId = int(form, 'employeeId');
   const projectId = int(form, 'projectId');
   const originalText = text(form, 'originalText');
@@ -339,6 +336,8 @@ export async function submitUpdate(form: FormData): Promise<SubmitResult> {
 // --------------------------------------------------------------------------
 
 export async function approveDecision(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const blockerId = int(form, 'blockerId');
   const ceoId = int(form, 'ceoId');
   const response = text(form, 'response');
@@ -419,6 +418,8 @@ export async function approveDecision(form: FormData): Promise<SubmitResult> {
 
 /** Sends a question back instead of a decision. The blocker does not move on. */
 export async function requestClarification(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const blockerId = int(form, 'blockerId');
   const ceoId = int(form, 'ceoId');
   const blocker = blockerId === null ? undefined : getBlocker(blockerId);
@@ -485,6 +486,8 @@ export async function requestClarification(form: FormData): Promise<SubmitResult
 
 /** The only path to resolved. Never reached by acknowledgement. */
 export async function resolveBlocker(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const blockerId = int(form, 'blockerId');
   const actorId = int(form, 'actorId');
   const blocker = blockerId === null ? undefined : getBlocker(blockerId);
@@ -519,6 +522,8 @@ export async function resolveBlocker(form: FormData): Promise<SubmitResult> {
  * blocker, and the interface says so where the button is.
  */
 export async function acknowledgeMessage(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize();
+  if (!auth.ok) return { ok: false, message: auth.message };
   const messageId = int(form, 'messageId');
   const userId = int(form, 'userId');
   const note = optionalText(form, 'note');
@@ -632,6 +637,8 @@ export async function proposeSchedule(form: FormData): Promise<SubmitResult & { 
 }
 
 export async function updateScheduleItem(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const id = int(form, 'itemId');
   const ownerId = int(form, 'ownerId');
   const title = text(form, 'title');
@@ -677,6 +684,8 @@ export async function updateScheduleItem(form: FormData): Promise<SubmitResult> 
 }
 
 export async function discardScheduleItem(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const id = int(form, 'itemId');
   const ownerId = int(form, 'ownerId');
   if (id === null || ownerId === null) return { ok: false, message: 'Missing block.' };
@@ -703,6 +712,8 @@ export async function discardScheduleItem(form: FormData): Promise<SubmitResult>
 }
 
 export async function approveSchedule(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const ownerId = int(form, 'ownerId');
   const planDate = text(form, 'planDate');
   if (ownerId === null || !/^\d{4}-\d{2}-\d{2}$/.test(planDate)) {
@@ -742,6 +753,8 @@ export async function approveSchedule(form: FormData): Promise<SubmitResult> {
  * after a reset match the counts you rehearsed with.
  */
 export async function resetDemo(): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   try {
     seedDemoWorkspace();
     revalidateAll();
@@ -762,11 +775,15 @@ export async function resetDemo(): Promise<SubmitResult> {
  * something that is not in the database - and cannot change anything either.
  */
 export async function getBriefing(): Promise<Briefing> {
-  return buildBriefing(await getCurrentUser());
+  const auth = await authorize('ceo');
+  if (!auth.ok) throw new Error(auth.message);
+  return buildBriefing(auth.user);
 }
 
 export async function askChief(question: string): Promise<Answer> {
-  return answerQuestion(question, await getCurrentUser());
+  const auth = await authorize('ceo');
+  if (!auth.ok) throw new Error(auth.message);
+  return answerQuestion(question, auth.user);
 }
 
 /**
@@ -778,6 +795,8 @@ export async function askChief(question: string): Promise<Answer> {
  * does that, and only resolving does the other.
  */
 export async function addBlockerComment(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
   const blockerId = int(form, 'blockerId');
   const authorId = int(form, 'authorId');
   const body = text(form, 'body').trim();

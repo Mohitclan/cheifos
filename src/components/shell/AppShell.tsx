@@ -10,9 +10,8 @@ import {
   Speech,
 } from 'lucide-react';
 import { providerStatus } from '@/lib/ai/provider';
-import { getUsers } from '@/lib/db/queries';
-import { getCurrentUser } from '@/lib/demo/session';
-import { IdentitySwitcher } from './IdentitySwitcher';
+import { currentUser } from '@/lib/auth/guard';
+import { SignedInAs } from './SignedInAs';
 import { ResetButton } from './ResetButton';
 
 /**
@@ -22,27 +21,38 @@ import { ResetButton } from './ResetButton';
  *   - DEMO MODE, so nobody can mistake fictional data for company data.
  *   - The provider chip, which states what is doing the extraction. Nobody can
  *     later claim the demo implied a language model was running.
- *   - The production-auth warning, because role switching is not security and
- *     saying so on screen reads as maturity rather than as a gap.
+ *   - Who you are signed in as, and the way out.
  */
 
 /**
- * `gap` marks where the CEO's own surfaces end and the shared ones begin. A
- * thin rule carries that better than a role tag on every single row did.
+/**
+ * Navigation per role.
+ *
+ * This is a convenience, not a control: every page guards itself on the
+ * server, so hiding a link here is only about not showing someone a door they
+ * cannot open.
  */
-const NAV = [
+const CEO_NAV = [
   { href: '/chief', label: 'Daily Brief', icon: Speech },
   { href: '/', label: 'Command Center', icon: LayoutDashboard },
   { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning },
   { href: '/schedule', label: 'Schedule', icon: CalendarRange },
-  { href: '/employee', label: 'Employee Workspace', icon: PenLine, gap: true },
   { href: '/activity', label: 'Activity', icon: Activity },
 ] as const;
 
+const EMPLOYEE_NAV = [
+  { href: '/employee', label: 'My Workspace', icon: PenLine },
+] as const;
+
 export async function AppShell({ children }: { children: ReactNode }) {
-  const users = getUsers();
-  const current = await getCurrentUser();
+  const current = await currentUser();
+
+  // Signed out: the login screen brings its own layout. Rendering the shell
+  // around it would show navigation to someone who cannot use any of it.
+  if (!current) return <>{children}</>;
+
   const provider = providerStatus();
+  const NAV = current.role === 'ceo' ? CEO_NAV : EMPLOYEE_NAV;
 
   return (
     <div className="flex min-h-screen">
@@ -57,7 +67,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-3">
           <ul className="space-y-0.5">
             {NAV.map((item) => (
-              <li key={item.href} className={'gap' in item && item.gap ? 'mt-2 border-t border-navy-800 pt-2' : ''}>
+              <li key={item.href}>
                 <Link
                   href={item.href}
                   className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-200 transition-colors hover:bg-navy-800 hover:text-white"
@@ -78,8 +88,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
             </span>
           </p>
           <p className="pl-[22px] text-[10px] leading-relaxed text-navy-400">
-            Role switching is a demo control, not security. Production requires server-enforced authentication,
-            authorisation and organisation scoping before any real record enters the system.
+            Sessions are signed and every page and action checks your role on the server.
           </p>
         </div>
       </aside>
@@ -109,16 +118,8 @@ export async function AppShell({ children }: { children: ReactNode }) {
             </span>
 
             <div className="ml-auto flex items-center gap-3">
-              <div className="text-right">
-                <IdentitySwitcher users={users} currentId={current?.id ?? null} />
-                <p
-                  className="mt-0.5 text-[10px] text-navy-400"
-                  title="Identity switching here is a demo control, not security. Production requires server-enforced authentication, authorisation and organisation scoping before any real record enters the system."
-                >
-                  Demo control, not real sign-in
-                </p>
-              </div>
-              <ResetButton />
+              <SignedInAs name={current.name} role={current.role} />
+              {current.role === 'ceo' && <ResetButton />}
             </div>
           </div>
 

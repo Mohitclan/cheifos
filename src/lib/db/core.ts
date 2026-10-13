@@ -17,9 +17,15 @@ const DB_PATH = process.env.CHIEFOS_DB_PATH ?? path.join(process.cwd(), 'data', 
 // handle on every edit and eventually exhaust them.
 const globalForDb = globalThis as unknown as { __chiefosDb?: DatabaseSync };
 
+/**
+ * Journal mode is DELETE rather than WAL on purpose. WAL leaves -shm and -wal
+ * files beside the database and keeps them locked; the Next dev server globs
+ * the project directory and crashes on Windows when it cannot read them.
+ * Single process here, so WAL buys nothing worth that.
+ */
 function open(): DatabaseSync {
   const db = new DatabaseSync(DB_PATH);
-  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA journal_mode = DELETE;');
   db.exec('PRAGMA foreign_keys = ON;');
   return db;
 }

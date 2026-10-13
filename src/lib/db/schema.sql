@@ -1,7 +1,7 @@
 -- ChiefOS demo schema. All data is fictional.
 -- Repeatable: every table is dropped and recreated by initSchema().
 
-PRAGMA journal_mode = WAL;
+PRAGMA journal_mode = DELETE;
 PRAGMA foreign_keys = ON;
 
 DROP TABLE IF EXISTS blocker_comments;
@@ -22,12 +22,17 @@ CREATE TABLE departments (
   name TEXT NOT NULL UNIQUE
 );
 
+-- password_hash is scrypt (see lib/auth/password.ts). Never store a plaintext
+-- password here, not even for a demo account.
 CREATE TABLE users (
   id            INTEGER PRIMARY KEY,
   name          TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('ceo', 'employee')),
   title         TEXT,
   department_id INTEGER REFERENCES departments(id),
+  username      TEXT UNIQUE,
+  password_hash TEXT,
+  last_login_at TEXT,
   is_demo       INTEGER NOT NULL DEFAULT 1
 );
 

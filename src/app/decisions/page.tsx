@@ -1,6 +1,6 @@
 import Link from 'next/link';
+import { requireCeo } from '@/lib/auth/guard';
 import {
-  getCeo,
   getCommentsForBlocker,
   getInboxBlockers,
   getResolvedBlockers,
@@ -47,9 +47,10 @@ function parseExtraction(raw: string | null): Extraction | null {
 }
 
 export default async function DecisionInbox() {
+  const signedIn = await requireCeo();
   if (!isSeeded()) return <SeedPrompt />;
 
-  const ceo = getCeo();
+  const ceo = signedIn;
   const inbox = getInboxBlockers();
   const sent = getSentBlockers();
   const resolved = getResolvedBlockers(5);

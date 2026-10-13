@@ -23,7 +23,19 @@ import { faker } from '@faker-js/faker';
 import { initSchema, run, tx } from '../db/core';
 import { extractWithRules } from '../ai/rules';
 import type { Extraction, ExtractionContext } from '../ai/types';
+import { hashPassword } from '../auth/password';
 import { DEPARTMENTS } from './constants';
+
+/**
+ * Demo credentials, printed by the seed script so they are discoverable
+ * without reading the source. Fictional workspace, fictional passwords - and
+ * they are still hashed, because a seed file is where a plaintext password
+ * quietly becomes a permanent habit.
+ */
+export const DEMO_PASSWORDS = {
+  ceo: 'ceo-demo-2026',
+  employee: 'team-demo-2026',
+} as const;
 
 faker.seed(20261013);
 
@@ -130,17 +142,28 @@ export function seedDemoWorkspace(): void {
     }
 
     // ---- People ----------------------------------------------------------
+    // Demo credentials. Passwords are hashed with scrypt even here - a seed
+    // script is exactly where a plaintext password quietly becomes permanent.
     const ceo = run(
-      `INSERT INTO users (name, role, title, department_id, is_demo) VALUES (?, 'ceo', ?, ?, 1)`,
-      ['Rohan Mehta', 'Chief Executive Officer', dept['Product Engineering']],
+      `INSERT INTO users (name, role, title, department_id, username, password_hash, is_demo)
+       VALUES (?, 'ceo', ?, ?, ?, ?, 1)`,
+      [
+        'Rohan Mehta',
+        'Chief Executive Officer',
+        dept['Product Engineering'],
+        'rohan',
+        hashPassword(DEMO_PASSWORDS.ceo),
+      ],
     );
 
-    const employee = (name: string, title: string, department: string): number =>
-      run(`INSERT INTO users (name, role, title, department_id, is_demo) VALUES (?, 'employee', ?, ?, 1)`, [
-        name,
-        title,
-        dept[department],
-      ]);
+    const employee = (name: string, title: string, department: string): number => {
+      const username = name.split(' ')[0].toLowerCase();
+      return run(
+        `INSERT INTO users (name, role, title, department_id, username, password_hash, is_demo)
+         VALUES (?, 'employee', ?, ?, ?, ?, 1)`,
+        [name, title, dept[department], username, hashPassword(DEMO_PASSWORDS.employee)],
+      );
+    };
 
     const aanya = employee('Aanya Sharma', 'Senior Engineer', 'Product Engineering');
     const vikram = employee('Vikram Rao', 'Engineer', 'Product Engineering');

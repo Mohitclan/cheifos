@@ -1,5 +1,5 @@
+import { requireCeo } from '@/lib/auth/guard';
 import { isSeeded } from '@/lib/db/queries';
-import { getCurrentUser } from '@/lib/demo/session';
 import { buildBriefing } from '@/lib/chief/briefing';
 import { SeedPrompt } from '@/components/SeedPrompt';
 import { ChiefPanel } from '@/components/chief/ChiefPanel';
@@ -12,9 +12,10 @@ export const dynamic = 'force-dynamic';
  * can never disagree.
  */
 export default async function ChiefPage() {
+  const signedIn = await requireCeo();
   if (!isSeeded()) return <SeedPrompt />;
 
-  const user = await getCurrentUser();
+  const user = signedIn;
   const briefing = buildBriefing(user);
 
   return (

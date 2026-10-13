@@ -1,3 +1,4 @@
+import { requireCeo } from '@/lib/auth/guard';
 import { getAuditTrail, isSeeded } from '@/lib/db/queries';
 import { timestamp } from '@/lib/format';
 import { EmptyState, Panel, Pill } from '@/components/ui';
@@ -26,6 +27,7 @@ function tone(action: string): 'blocked' | 'accent' | 'ok' | 'risk' | 'neutral' 
 }
 
 export default async function ActivityPage() {
+  await requireCeo();
   if (!isSeeded()) return <SeedPrompt />;
 
   const trail = getAuditTrail(80);

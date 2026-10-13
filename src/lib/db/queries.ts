@@ -502,3 +502,16 @@ export function getCommentCounts(): Record<number, number> {
   for (const row of rows) counts[row.blocker_id] = Number(row.n);
   return counts;
 }
+
+/** Lookup for sign-in. Returns the hash so the caller can verify it. */
+export function getUserByUsername(username: string):
+  | (UserRow & { username: string | null; password_hash: string | null })
+  | undefined {
+  return one(
+    `SELECT u.*, d.name AS department_name
+       FROM users u
+       LEFT JOIN departments d ON d.id = u.department_id
+      WHERE u.username = ?`,
+    [username.trim().toLowerCase()],
+  );
+}
