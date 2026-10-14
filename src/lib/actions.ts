@@ -22,6 +22,8 @@ import { buildBriefing, type Briefing } from '@/lib/chief/briefing';
 import { answerQuestion, type Answer } from '@/lib/chief/ask';
 import { seedDemoWorkspace } from '@/lib/demo/seed';
 import { buildComplianceReport, complianceCsv } from '@/lib/reporting';
+import { buildDigest } from '@/lib/mail/digest';
+import { appUrl, getMailProvider } from '@/lib/mail/provider';
 
 /**
  * Every write in the application.
@@ -851,4 +853,57 @@ export async function getComplianceCsv(windowDays: number): Promise<{ filename: 
     filename: `chiefos-update-reporting-${report.fromDate}-to-${report.toDate}.csv`,
     csv: complianceCsv(report),
   };
+}
+
+/** The digest exactly as it would be sent. Preview only - sends nothing. */
+export async function previewDigest(): Promise<{ subject: string; html: string; text: string }> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) throw new Error(auth.message);
+
+  const mail = buildDigest(auth.user, auth.user.name, appUrl());
+  return { subject: mail.subject, html: mail.html, text: mail.text };
+}
+
+/**
+ * Sends the digest to one address.
+ *
+ * Deliberately requires the address to be typed each time rather than stored:
+ * this is the only action in ChiefOS that leaves the machine, and it should
+ * take an explicit decision every time until there is a real scheduler and a
+ * verified sending domain behind it.
+ */
+export async function sendDigestTo(form: FormData): Promise<SubmitResult> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const to = text(form, 'to').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+    return { ok: false, message: 'Enter a valid email address.' };
+  }
+
+  const provider = getMailProvider();
+  if (!provider.configured) {
+    return {
+      ok: false,
+      message: 'No mail provider configured yet. Set CHIEFOS_MAIL_PROVIDER, CHIEFOS_MAIL_API_KEY and CHIEFOS_MAIL_FROM.',
+    };
+  }
+
+  const result = await provider.send(buildDigest(auth.user, to, appUrl()));
+
+  if (result.ok) {
+    tx(() => {
+      audit({
+        actorId: auth.user.id,
+        action: 'digest.sent',
+        entityType: 'user',
+        entityId: auth.user.id,
+        summary: `Daily digest emailed to ${to} via ${provider.label}.`,
+        metadata: { to, provider: provider.id, id: result.id },
+      });
+    });
+    revalidateAll();
+  }
+
+  return { ok: result.ok, message: result.message };
 }

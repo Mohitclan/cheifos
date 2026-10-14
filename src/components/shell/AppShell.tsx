@@ -5,6 +5,7 @@ import {
   CalendarRange,
   ClipboardCheck,
   LayoutDashboard,
+  Mail,
   MessageSquareWarning,
   PenLine,
   ShieldAlert,
@@ -38,6 +39,7 @@ const CEO_NAV = [
   { href: '/', label: 'Command Center', icon: LayoutDashboard },
   { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning },
   { href: '/schedule', label: 'Schedule', icon: CalendarRange },
+  { href: '/digest', label: 'Daily digest', icon: Mail },
   { href: '/reporting', label: 'Update reporting', icon: ClipboardCheck },
   { href: '/activity', label: 'Activity', icon: Activity },
 ] as const;
