@@ -1,4 +1,4 @@
-import { getReportingStatus, type ReportingRow } from '@/lib/db/queries';
+import { getComplianceWindow, getReportingStatus, type ReportingRow } from '@/lib/db/queries';
 import { isoDate, todayIso } from '@/lib/format';
 
 /**
@@ -76,3 +76,115 @@ export function isReportingDay(date: string = todayIso()): boolean {
 }
 
 export { isoDate };
+
+/**
+ * The filing report.
+ *
+ * Two different questions, answered side by side: how consistently has someone
+ * filed over a window, and how long has it been since they last did. A person
+ * can look fine on one and bad on the other - filing every day then stopping
+ * three days ago is a different problem from filing twice a fortnight - and
+ * collapsing them into a single score would hide both.
+ */
+
+export interface ComplianceEntry extends ReportingGap {
+  daysFiled: number;
+  expectedDays: number;
+  /** Share of working days in the window with an update. 0 to 1. */
+  rate: number;
+  filedToday: boolean;
+}
+
+export interface ComplianceReport {
+  fromDate: string;
+  toDate: string;
+  /** Working days in the window, which is what people are measured against. */
+  expectedDays: number;
+  entries: ComplianceEntry[];
+  filedToday: number;
+  teamSize: number;
+  /** Mean filing rate across the team, 0 to 1. */
+  teamRate: number;
+}
+
+function shiftDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return isoDate(d);
+}
+
+/** Working days in [from, to] inclusive of both ends. */
+export function workingDaysInclusive(from: string, to: string): number {
+  const first = new Date(`${from}T00:00:00`);
+  return (isWeekendDate(first) ? 0 : 1) + workingDaysBetween(from, to);
+}
+
+function isWeekendDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+export function buildComplianceReport(windowDays = 14, asOf: string = todayIso()): ComplianceReport {
+  const fromDate = shiftDays(asOf, -(windowDays - 1));
+  const expectedDays = workingDaysInclusive(fromDate, asOf);
+
+  const windowRows = getComplianceWindow(fromDate, asOf);
+  const gaps = new Map(getReportingGaps(asOf).map((gap) => [gap.id, gap]));
+
+  const entries: ComplianceEntry[] = windowRows.map((row) => {
+    // The gap carries the true last-filed date; the window row only knows
+    // about updates inside the window.
+    const gap = gaps.get(row.id)!;
+    const daysFiled = Number(row.days_filed ?? 0);
+
+    return {
+      ...gap,
+      daysFiled,
+      expectedDays,
+      rate: expectedDays > 0 ? Math.min(1, daysFiled / expectedDays) : 0,
+      filedToday: gap.last_update_date === asOf,
+    };
+  });
+
+  entries.sort((a, b) => a.rate - b.rate || b.missedWorkingDays - a.missedWorkingDays);
+
+  const filedToday = entries.filter((entry) => entry.filedToday).length;
+  const teamRate = entries.length
+    ? entries.reduce((sum, entry) => sum + entry.rate, 0) / entries.length
+    : 0;
+
+  return {
+    fromDate,
+    toDate: asOf,
+    expectedDays,
+    entries,
+    filedToday,
+    teamSize: entries.length,
+    teamRate,
+  };
+}
+
+/** Spreadsheet-ready. The CEO who asks for this will want to forward it. */
+export function complianceCsv(report: ComplianceReport): string {
+  const header = [
+    'Name', 'Title', 'Department', 'Filed today', 'Days filed', 'Working days',
+    'Filing rate %', 'Last filed', 'Working days since', 'Status',
+  ];
+
+  const rows = report.entries.map((entry) => [
+    entry.name,
+    entry.title ?? '',
+    entry.department_name ?? '',
+    entry.filedToday ? 'Yes' : 'No',
+    String(entry.daysFiled),
+    String(entry.expectedDays),
+    String(Math.round(entry.rate * 100)),
+    entry.last_update_date ?? 'Never',
+    entry.neverReported ? '' : String(entry.missedWorkingDays),
+    entry.severity,
+  ]);
+
+  return [header, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+}

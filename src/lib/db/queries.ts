@@ -548,3 +548,35 @@ export function getReportingStatus(): ReportingRow[] {
       ORDER BY last_update_at IS NULL DESC, last_update_at ASC`,
   );
 }
+
+export interface ComplianceRow extends ReportingRow {
+  /** Updates filed inside the window. */
+  filed_in_window: number;
+  /** Distinct days filed on, so two updates in one day do not count twice. */
+  days_filed: number;
+  first_in_window: string | null;
+}
+
+/**
+ * Filing history per employee over a date window, for the reporting report.
+ * Counted by distinct day: somebody who files twice on Monday and nothing
+ * else has filed on one day, not two.
+ */
+export function getComplianceWindow(fromDate: string, toDate: string): ComplianceRow[] {
+  return all<ComplianceRow>(
+    `SELECT u.id, u.name, u.title, d.name AS department_name,
+            MAX(up.created_at)                                   AS last_update_at,
+            MAX(date(up.created_at))                             AS last_update_date,
+            COUNT(up.id)                                         AS filed_in_window,
+            COUNT(DISTINCT date(up.created_at))                  AS days_filed,
+            MIN(date(up.created_at))                             AS first_in_window
+       FROM users u
+       LEFT JOIN departments d ON d.id = u.department_id
+       LEFT JOIN updates up    ON up.employee_id = u.id
+                               AND date(up.created_at) BETWEEN ? AND ?
+      WHERE u.role = 'employee'
+      GROUP BY u.id
+      ORDER BY days_filed ASC, u.name ASC`,
+    [fromDate, toDate],
+  );
+}

@@ -21,6 +21,7 @@ import { authorize } from '@/lib/auth/guard';
 import { buildBriefing, type Briefing } from '@/lib/chief/briefing';
 import { answerQuestion, type Answer } from '@/lib/chief/ask';
 import { seedDemoWorkspace } from '@/lib/demo/seed';
+import { buildComplianceReport, complianceCsv } from '@/lib/reporting';
 
 /**
  * Every write in the application.
@@ -838,4 +839,16 @@ export async function addBlockerComment(form: FormData): Promise<SubmitResult> {
   } catch {
     return { ok: false, message: 'Could not post that comment.' };
   }
+}
+
+/** CSV of the filing report. CEO only, like every other read on that page. */
+export async function getComplianceCsv(windowDays: number): Promise<{ filename: string; csv: string }> {
+  const auth = await authorize('ceo');
+  if (!auth.ok) throw new Error(auth.message);
+
+  const report = buildComplianceReport(windowDays);
+  return {
+    filename: `chiefos-update-reporting-${report.fromDate}-to-${report.toDate}.csv`,
+    csv: complianceCsv(report),
+  };
 }

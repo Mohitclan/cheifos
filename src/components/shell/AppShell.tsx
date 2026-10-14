@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import {
   Activity,
   CalendarRange,
+  ClipboardCheck,
   LayoutDashboard,
   MessageSquareWarning,
   PenLine,
@@ -37,6 +38,7 @@ const CEO_NAV = [
   { href: '/', label: 'Command Center', icon: LayoutDashboard },
   { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning },
   { href: '/schedule', label: 'Schedule', icon: CalendarRange },
+  { href: '/reporting', label: 'Update reporting', icon: ClipboardCheck },
   { href: '/activity', label: 'Activity', icon: Activity },
 ] as const;
 
