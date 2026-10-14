@@ -127,6 +127,9 @@ CREATE TABLE schedule_items (
   -- A block someone else is expecting you at, versus time you set aside for
   -- yourself. Only the first kind is worth interrupting the CEO about.
   kind                TEXT NOT NULL DEFAULT 'focus' CHECK (kind IN ('meeting', 'focus')),
+  -- Set once the lead-time alert for this block has been emailed, so a cron
+  -- that runs every ten minutes does not send the same reminder six times.
+  alert_sent_at       TEXT,
   with_whom           TEXT,
   topic               TEXT,
   plan_date           TEXT NOT NULL,

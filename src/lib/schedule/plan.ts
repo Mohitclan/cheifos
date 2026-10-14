@@ -1,6 +1,7 @@
 import * as chrono from 'chrono-node';
 import { addMinutes, areIntervalsOverlapping, format } from 'date-fns';
 import { DEFAULT_BLOCK_MINUTES, WORKDAY } from '@/lib/demo/constants';
+import { normaliseSpokenTime } from './spoken-time';
 
 /**
  * Schedule generation (section 9 of the product doc).
@@ -183,18 +184,26 @@ function parseStart(
 
   // A duration must not be read as a clock time: without this strip,
   // "interview for 45 minutes" parses as 00:45 and lands at 09:45.
-  const withoutDurations = clause.replace(DURATION_ANYWHERE, ' ');
+  const withoutDurations = normaliseSpokenTime(clause.replace(DURATION_ANYWHERE, ' '));
 
   for (const result of chrono.parse(withoutDurations, reference, { forwardDate: true })) {
     // isCertain means the text stated the hour rather than chrono defaulting
     // it. Combined with the clock-shape check, that is what "explicit" means.
     const looksLikeClock = /\d|noon|midday|midnight/i.test(result.text);
     if (result.start.isCertain('hour') && looksLikeClock) {
-      return {
-        hour: result.start.get('hour') ?? WORKDAY.startHour,
-        minute: result.start.get('minute') ?? 0,
-        explicit: true,
-      };
+      let hour = result.start.get('hour') ?? WORKDAY.startHour;
+      const minute = result.start.get('minute') ?? 0;
+
+      // "half past three" normalises to 3:30, and chrono reads a bare 3:30 as
+      // the early morning. Nobody planning a working day means 03:30, so an
+      // unqualified hour that falls before the working day is read as the
+      // afternoon when that lands inside it. An explicit "am" always wins.
+      const saidAm = /\b(?:am|a\.m\.?|morning)\b/i.test(withoutDurations);
+      if (!saidAm && hour < WORKDAY.startHour && hour + 12 <= WORKDAY.endHour) {
+        hour += 12;
+      }
+
+      return { hour, minute, explicit: true };
     }
   }
 
