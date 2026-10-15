@@ -12,13 +12,15 @@
     "reset": "tsx scripts/seed.ts --reset",
     "test:schedule": "tsx scripts/test-schedule.ts",
     "test": "npm run test:extract && npm run test:schedule && npm run test:form",
-    "test:form": "tsx scripts/test-form.ts"
+    "test:form": "tsx scripts/test-form.ts",
+    "mail:check": "tsx scripts/mail-check.ts"
   },
   "dependencies": {
     "chrono-node": "^2.10.3",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.56.0",
     "next": "16.4.0",
+    "nodemailer": "^10.1.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
@@ -29,8 +31,10 @@
     "@faker-js/faker": "^10.6.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.8",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",

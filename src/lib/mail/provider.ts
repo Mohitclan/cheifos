@@ -1,12 +1,19 @@
 import 'server-only';
 import type { Mail, MailProvider, MailResult } from './types';
+import { gmailProvider } from './gmail';
 
 /**
  * ============================================================================
  *  TO ACTUALLY SEND MAIL, SET THE ENV VARS. NO CODE CHANGE NEEDED.
  * ============================================================================
  *
- *   CHIEFOS_MAIL_PROVIDER=resend        (or "brevo")
+ *   CHIEFOS_MAIL_PROVIDER=gmail         (or "resend", "brevo")
+ *
+ * For gmail:
+ *   CHIEFOS_GMAIL_USER=you@gmail.com
+ *   CHIEFOS_GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx   (16 chars, spaces ok)
+ *
+ * For resend/brevo:
  *   CHIEFOS_MAIL_API_KEY=...
  *   CHIEFOS_MAIL_FROM="ChiefOS <chief@yourdomain.com>"
  *   CHIEFOS_APP_URL=https://...         (the link in the email)
@@ -102,6 +109,7 @@ const brevoProvider: MailProvider = {
 };
 
 export function getMailProvider(): MailProvider {
+  if (PROVIDER === 'gmail' && gmailProvider.configured) return gmailProvider;
   if (PROVIDER === 'resend' && resendProvider.configured) return resendProvider;
   if (PROVIDER === 'brevo' && brevoProvider.configured) return brevoProvider;
   return noopProvider;
