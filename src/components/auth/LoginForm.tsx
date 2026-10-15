@@ -18,8 +18,8 @@ export function LoginForm({ seeded }: { seeded: boolean }) {
     <div className="rounded-xl border border-navy-800 bg-navy-900 p-6">
       <h1 className="text-base font-semibold text-white">Sign in</h1>
       <p className="mt-1 text-xs text-navy-300">
-        Your workspace depends on your role. CEO accounts open the Command Center; team accounts
-        open their own workspace.
+        ChiefOS is a read-only view for leadership. It reads from the systems your team already
+        uses - nobody files anything here.
       </p>
 
       <form action={formAction} className="mt-5 space-y-3">
@@ -76,10 +76,7 @@ export function LoginForm({ seeded }: { seeded: boolean }) {
               <dt>CEO</dt>
               <dd className="font-mono text-navy-200">rohan / ceo-demo-2026</dd>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt>Team</dt>
-              <dd className="font-mono text-navy-200">aanya / team-demo-2026</dd>
-            </div>
+
           </dl>
         </div>
       ) : (

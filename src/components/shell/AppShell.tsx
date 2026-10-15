@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Mail,
   MessageSquareWarning,
-  PenLine,
   ShieldAlert,
   Speech,
 } from 'lucide-react';
@@ -44,10 +43,6 @@ const CEO_NAV = [
   { href: '/activity', label: 'Activity', icon: Activity },
 ] as const;
 
-const EMPLOYEE_NAV = [
-  { href: '/employee', label: 'My Workspace', icon: PenLine },
-] as const;
-
 export async function AppShell({ children }: { children: ReactNode }) {
   const current = await currentUser();
 
@@ -56,7 +51,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
   if (!current) return <>{children}</>;
 
   const provider = providerStatus();
-  const NAV = current.role === 'ceo' ? CEO_NAV : EMPLOYEE_NAV;
+  const NAV = CEO_NAV;
 
   return (
     <div className="flex min-h-screen">
@@ -88,7 +83,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
           <p className="flex items-start gap-2 text-[11px] leading-relaxed text-navy-200">
             <ShieldAlert size={14} className="mt-0.5 shrink-0 text-risk-500" aria-hidden />
             <span>
-              Nothing in this system sends a message or closes a blocker without a human pressing approve.
+              Nothing is sent and no blocker is closed without a human pressing approve.
             </span>
           </p>
           <p className="pl-[22px] text-[10px] leading-relaxed text-navy-400">

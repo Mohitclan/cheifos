@@ -158,10 +158,19 @@ export function seedDemoWorkspace(): void {
 
     const employee = (name: string, title: string, department: string): number => {
       const username = name.split(' ')[0].toLowerCase();
+      // No employee signs in any more, but the address is how an approved
+      // decision reaches them. Fictional domain, like everything else here.
       return run(
-        `INSERT INTO users (name, role, title, department_id, username, password_hash, is_demo)
-         VALUES (?, 'employee', ?, ?, ?, ?, 1)`,
-        [name, title, dept[department], username, hashPassword(DEMO_PASSWORDS.employee)],
+        `INSERT INTO users (name, role, title, department_id, email, username, password_hash, is_demo)
+         VALUES (?, 'employee', ?, ?, ?, ?, ?, 1)`,
+        [
+          name,
+          title,
+          dept[department],
+          `${username}@example-demo.invalid`,
+          username,
+          hashPassword(DEMO_PASSWORDS.employee),
+        ],
       );
     };
 

@@ -16,6 +16,10 @@ import { all, count, one } from './core';
 export interface UserRow {
   id: number;
   name: string;
+  /** Where approved guidance is delivered. Nobody but the CEO signs in. */
+  email: string | null;
+  /** Identity in the source system, when imported. */
+  external_id: string | null;
   role: 'ceo' | 'employee';
   title: string | null;
   department: string | null;

@@ -25,16 +25,23 @@ export async function requireUser(): Promise<UserRow> {
   return user;
 }
 
-/** CEO only. An employee reaching a CEO page lands on their own workspace. */
+/**
+ * CEO only.
+ *
+ * There is no employee surface any more - ChiefOS reads from the systems
+ * people already use and nobody but the CEO signs in. A non-CEO account is
+ * therefore signed out rather than redirected, because there is nowhere
+ * else for them to go.
+ */
 export async function requireCeo(): Promise<UserRow> {
   const user = await requireUser();
-  if (user.role !== 'ceo') redirect('/employee');
+  if (user.role !== 'ceo') redirect('/login');
   return user;
 }
 
 /** The home surface for a role. Used after login and by the root redirect. */
 export function homeFor(user: UserRow): string {
-  return user.role === 'ceo' ? '/' : '/employee';
+  return user.role === 'ceo' ? '/' : '/login';
 }
 
 /**

@@ -4,18 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { audit, nowIso, run, tx } from '@/lib/db';
 import {
   getBlocker,
-  getDepartmentContact,
-  getDepartmentIdByName,
-  getDepartmentNames,
-  getMessage,
-  getProject,
-  getProjectsForEmployee,
-  getTasksForProject,
   getUser,
 } from '@/lib/db/queries';
-import { getProvider } from '@/lib/ai/provider';
-import { extractionSchema, emptyExtraction, type Extraction } from '@/lib/ai/types';
-import { buildEscalation, clarificationRequest, draftResponse } from '@/lib/escalation';
+import { emptyExtraction, type Extraction } from '@/lib/ai/types';
+import { clarificationRequest } from '@/lib/escalation';
 import { planDay, type Proposal } from '@/lib/schedule/plan';
 import { authorize } from '@/lib/auth/guard';
 import { buildBriefing, type Briefing } from '@/lib/chief/briefing';
@@ -23,6 +15,7 @@ import { answerQuestion, type Answer } from '@/lib/chief/ask';
 import { seedDemoWorkspace } from '@/lib/demo/seed';
 import { buildComplianceReport, complianceCsv } from '@/lib/reporting';
 import { buildDigest } from '@/lib/mail/digest';
+import { sendGuidance } from '@/lib/mail/guidance';
 import { appUrl, getMailProvider } from '@/lib/mail/provider';
 
 /**
@@ -69,55 +62,6 @@ function int(form: FormData, key: string): number | null {
 // --------------------------------------------------------------------------
 
 // --------------------------------------------------------------------------
-// Extraction preview
-// --------------------------------------------------------------------------
-
-export interface PreviewResult {
-  extraction: Extraction;
-  /** Which provider produced this, for the label above the preview. */
-  providerLabel: string;
-  /** A candidate datetime for deadline_text, shown as an editable assumption. */
-  deadlineAssumption: string | null;
-}
-
-/**
- * Runs extraction for the preview. Read-only: nothing is written until the
- * employee submits the fields they have reviewed.
- */
-export async function previewExtraction(input: {
-  text: string;
-  employeeId: number;
-  projectId: number | null;
-}): Promise<PreviewResult> {
-  const auth = await authorize();
-  if (!auth.ok) throw new Error(auth.message);
-  const provider = getProvider();
-  const projects = getProjectsForEmployee(input.employeeId);
-  const tasks = input.projectId ? getTasksForProject(input.projectId) : [];
-
-  let extraction: Extraction;
-  try {
-    extraction = await provider.extractUpdate(input.text, {
-      departments: getDepartmentNames(),
-      projects: projects.map((p) => p.name),
-      tasks: tasks.map((t) => t.title),
-    });
-    // Validate the provider output before it reaches the UI. A malformed
-    // extraction must fail safe to "nothing found", never to a stack trace.
-    const parsed = extractionSchema.safeParse(extraction);
-    extraction = parsed.success ? parsed.data : emptyExtraction();
-  } catch {
-    extraction = emptyExtraction();
-  }
-
-  return {
-    extraction,
-    providerLabel: provider.label,
-    deadlineAssumption: null,
-  };
-}
-
-// --------------------------------------------------------------------------
 // Employee submits an update
 // --------------------------------------------------------------------------
 
@@ -127,211 +71,6 @@ export interface SubmitResult {
   blockerId?: number;
   message: string;
   error?: string;
-}
-
-/**
- * Persists an update exactly as the employee confirmed it, and - when they
- * confirmed a blocked status - raises a blocker with an explainable priority
- * and a draft response for the CEO.
- */
-export async function submitUpdate(form: FormData): Promise<SubmitResult> {
-  const auth = await authorize();
-  if (!auth.ok) return { ok: false, message: auth.message };
-  const employeeId = int(form, 'employeeId');
-  const projectId = int(form, 'projectId');
-  const originalText = text(form, 'originalText');
-
-  if (employeeId === null || projectId === null) {
-    return { ok: false, message: 'Select who you are and which project this is about.' };
-  }
-  if (originalText.length < 3) {
-    return { ok: false, message: 'Write your update before submitting.' };
-  }
-
-  const employee = getUser(employeeId);
-  const project = getProject(projectId);
-  if (!employee || !project) {
-    return { ok: false, message: 'That person or project no longer exists. Reload and try again.' };
-  }
-
-  // The confirmed fields from the preview form. These are what persist.
-  const candidate = {
-    project: optionalText(form, 'field_project') ?? project.name,
-    task: optionalText(form, 'field_task'),
-    progress_percent: optionalText(form, 'field_progress') === null ? null : int(form, 'field_progress'),
-    status: (optionalText(form, 'field_status') as Extraction['status']) ?? null,
-    blocker: optionalText(form, 'field_blocker'),
-    dependency_department: optionalText(form, 'field_dependency'),
-    help_needed: optionalText(form, 'field_help'),
-    deadline_text: optionalText(form, 'field_deadline'),
-    risk: optionalText(form, 'field_risk'),
-    needs_clarification: text(form, 'field_needs_clarification') === 'true',
-    clarification_question: optionalText(form, 'field_clarification_question'),
-    inferred_fields: (optionalText(form, 'field_inferred') ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
-  };
-
-  const parsed = extractionSchema.safeParse(candidate);
-  if (!parsed.success) {
-    // Fail safe: keep the raw text, drop the unparseable fields, tell the
-    // user which one to fix. Never discard what they wrote.
-    return {
-      ok: false,
-      message: 'One of the fields could not be saved as written. Check the highlighted values.',
-      error: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
-    };
-  }
-
-  const extraction = parsed.data;
-  const taskId = int(form, 'taskId');
-  const source = text(form, 'source') === 'voice' ? 'voice' : text(form, 'source') === 'sample' ? 'sample' : 'typed';
-
-  try {
-    return tx(() => {
-      const updateId = run(
-        `INSERT INTO updates (employee_id, project_id, task_id, original_text, transcript,
-                              extracted_json, source, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', ?)`,
-        [
-          employeeId,
-          projectId,
-          taskId,
-          originalText,
-          source === 'voice' ? originalText : null,
-          JSON.stringify(extraction),
-          source,
-          nowIso(),
-        ],
-      );
-
-      audit({
-        actorId: employeeId,
-        action: 'update.submitted',
-        entityType: 'update',
-        entityId: updateId,
-        summary: `${employee.name} submitted an update on ${project.name}`,
-        metadata: { confirmedFields: extraction },
-      });
-
-      // Project progress follows what the employee confirmed, never an
-      // inference made on their behalf.
-      if (extraction.progress_percent !== null) {
-        run('UPDATE projects SET progress = ? WHERE id = ?', [extraction.progress_percent, projectId]);
-        audit({
-          actorId: employeeId,
-          action: 'project.progress_updated',
-          entityType: 'project',
-          entityId: projectId,
-          summary: `${project.name} progress set to ${extraction.progress_percent}% from the submitted update`,
-        });
-      }
-
-      if (extraction.status && extraction.status !== 'done') {
-        run('UPDATE projects SET status = ? WHERE id = ?', [extraction.status, projectId]);
-      }
-
-      if (extraction.status !== 'blocked') {
-        return {
-          ok: true,
-          updateId,
-          message: 'Update submitted. Nothing was escalated, because nothing was flagged as blocked.',
-        };
-      }
-
-      // ---- Blocked: raise a blocker with a stated reason ----------------
-      const departmentId = extraction.dependency_department
-        ? (getDepartmentIdByName(extraction.dependency_department) ?? null)
-        : null;
-      const contact = departmentId ? getDepartmentContact(departmentId) : undefined;
-
-      const blockedTasks = getTasksForProject(projectId).filter((t) => t.status === 'blocked').length;
-      const daysToTarget = project.target_date
-        ? Math.ceil((new Date(project.target_date).getTime() - Date.now()) / 86_400_000)
-        : null;
-
-      const escalation = buildEscalation({
-        extraction,
-        projectName: project.name,
-        blockedTaskCount: blockedTasks,
-        daysToTarget,
-        crossTeam: Boolean(extraction.dependency_department && extraction.dependency_department !== employee.department),
-        raisedByName: employee.name,
-      });
-
-      const blockerId = run(
-        `INSERT INTO blockers (update_id, project_id, title, description, raised_by_id, owner_id,
-                               dependency_department_id, priority, priority_reason, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'awaiting_decision', ?)`,
-        [
-          updateId,
-          projectId,
-          escalation.title,
-          escalation.description,
-          employeeId,
-          contact?.id ?? null,
-          departmentId,
-          escalation.priority,
-          escalation.priorityReason,
-          nowIso(),
-        ],
-      );
-
-      audit({
-        actorId: employeeId,
-        action: 'blocker.created',
-        entityType: 'blocker',
-        entityId: blockerId,
-        summary: `Blocker raised from the update: ${escalation.title}`,
-        metadata: { priority: escalation.priority, reason: escalation.priorityReason },
-      });
-
-      // A draft response, so the blocker reaches the CEO with something to
-      // edit rather than a blank box. It cannot be sent without approval.
-      const decisionId = run(
-        `INSERT INTO decisions (blocker_id, created_by, proposed_response, approved_response, status, created_at)
-         VALUES (?, ?, ?, NULL, 'draft', ?)`,
-        [
-          blockerId,
-          employeeId,
-          draftResponse({
-            extraction,
-            raisedByName: employee.name,
-            projectName: project.name,
-            dependencyDepartment: extraction.dependency_department,
-            dependencyContactName: contact?.name ?? null,
-          }),
-          nowIso(),
-        ],
-      );
-
-      audit({
-        actorId: null,
-        action: 'decision.drafted',
-        entityType: 'decision',
-        entityId: decisionId,
-        summary: 'Draft response prepared for review (not sent)',
-      });
-
-      run('UPDATE projects SET status = ? WHERE id = ?', ['blocked', projectId]);
-
-      return {
-        ok: true,
-        updateId,
-        blockerId,
-        message: 'Update submitted and the blocker is now in the decision inbox, waiting on a human.',
-      };
-    });
-  } catch (err) {
-    return {
-      ok: false,
-      message: 'The update could not be saved. Nothing was written.',
-      error: (err as Error).message,
-    };
-  } finally {
-    revalidateAll();
-  }
 }
 
 // --------------------------------------------------------------------------
@@ -410,13 +149,67 @@ export async function approveDecision(form: FormData): Promise<SubmitResult> {
         summary: 'Blocker moved to decision sent (still open until explicitly resolved)',
       });
 
-      return { ok: true, message: 'Approved and sent. The blocker stays open until someone resolves it.' };
+      return { ok: true, message: 'Approved.' };
     });
   } catch (err) {
-    return { ok: false, message: 'Nothing was sent - the write failed.', error: (err as Error).message };
+    return { ok: false, message: 'Nothing was recorded - the write failed.', error: (err as Error).message };
   } finally {
     revalidateAll();
   }
+}
+
+/**
+ * Records the decision, then delivers it.
+ *
+ * Deliberately two steps. The decision is a fact once the CEO approves it;
+ * whether the email left is a separate fact. A delivery failure must not undo
+ * the approval, and a recorded approval must not imply it arrived - so both
+ * outcomes are audited separately and the message says which happened.
+ */
+export async function approveAndDeliver(form: FormData): Promise<SubmitResult> {
+  const recorded = await approveDecision(form);
+  if (!recorded.ok) return recorded;
+
+  const blockerId = int(form, 'blockerId');
+  const ceoId = int(form, 'ceoId');
+  const response = text(form, 'response').trim();
+  const blocker = blockerId === null ? undefined : getBlocker(blockerId);
+  const ceo = ceoId === null ? undefined : getUser(ceoId);
+  const recipient = blocker?.raised_by_id ? getUser(blocker.raised_by_id) : undefined;
+
+  if (!blocker || !ceo || !recipient) {
+    return { ok: true, message: 'Approved and recorded. Nobody to deliver it to.' };
+  }
+
+  const delivery = await sendGuidance({
+    to: recipient.email ?? '',
+    recipientName: recipient.name,
+    senderName: ceo.name,
+    blockerTitle: blocker.title,
+    projectName: blocker.project_name,
+    body: response,
+  });
+
+  tx(() => {
+    audit({
+      actorId: ceoId,
+      action: delivery.ok ? 'guidance.delivered' : 'guidance.not_delivered',
+      entityType: 'blocker',
+      entityId: blockerId,
+      summary: delivery.ok
+        ? `Guidance emailed to ${recipient.name} at ${recipient.email}.`
+        : `Guidance was NOT delivered to ${recipient.name}: ${delivery.message}`,
+      metadata: { to: recipient.email, ok: delivery.ok },
+    });
+  });
+  revalidateAll();
+
+  return {
+    ok: true,
+    message: delivery.ok
+      ? `${delivery.message} The blocker stays open until someone resolves it.`
+      : delivery.message,
+  };
 }
 
 /** Sends a question back instead of a decision. The blocker does not move on. */
@@ -519,45 +312,6 @@ export async function resolveBlocker(form: FormData): Promise<SubmitResult> {
 // --------------------------------------------------------------------------
 // Employee acknowledges guidance
 // --------------------------------------------------------------------------
-
-/**
- * Acknowledgement records that the guidance was READ. It does not resolve the
- * blocker, and the interface says so where the button is.
- */
-export async function acknowledgeMessage(form: FormData): Promise<SubmitResult> {
-  const auth = await authorize();
-  if (!auth.ok) return { ok: false, message: auth.message };
-  const messageId = int(form, 'messageId');
-  const userId = int(form, 'userId');
-  const note = optionalText(form, 'note');
-
-  const message = messageId === null ? undefined : getMessage(messageId);
-  if (!message || userId === null) return { ok: false, message: 'That message no longer exists.' };
-  if (message.acknowledged_at) return { ok: true, message: 'Already acknowledged.' };
-
-  try {
-    return tx(() => {
-      run('UPDATE messages SET acknowledged_at = ?, ack_note = ? WHERE id = ?', [nowIso(), note, messageId]);
-      audit({
-        actorId: userId,
-        action: 'message.acknowledged',
-        entityType: 'message',
-        entityId: messageId,
-        summary:
-          'Guidance acknowledged. The blocker stays open - acknowledgement is not resolution.',
-        metadata: { note },
-      });
-      return {
-        ok: true,
-        message: 'Acknowledged. The blocker is still open until it is explicitly resolved.',
-      };
-    });
-  } catch (err) {
-    return { ok: false, message: 'Acknowledgement failed.', error: (err as Error).message };
-  } finally {
-    revalidateAll();
-  }
-}
 
 // --------------------------------------------------------------------------
 // Schedule

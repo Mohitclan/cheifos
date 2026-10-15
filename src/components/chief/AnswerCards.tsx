@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Check, MessageCircleQuestion, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { approveDecision, requestClarification } from '@/lib/actions';
+import { approveAndDeliver, requestClarification } from '@/lib/actions';
 import type { AnswerCard } from '@/lib/chief/ask';
 import { Pill } from '@/components/ui';
 
@@ -57,7 +57,7 @@ function CardRow({ card, ceoId }: { card: AnswerCard; ceoId: number }) {
 
     startTransition(async () => {
       const result =
-        kind === 'approve' ? await approveDecision(form) : await requestClarification(form);
+        kind === 'approve' ? await approveAndDeliver(form) : await requestClarification(form);
       if (result.ok) {
         setDone(true);
         setConfirming(false);

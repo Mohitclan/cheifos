@@ -30,6 +30,12 @@ CREATE TABLE users (
   role          TEXT NOT NULL CHECK (role IN ('ceo', 'employee')),
   title         TEXT,
   department_id INTEGER REFERENCES departments(id),
+  -- Where an approved decision is delivered. Nobody but the CEO signs in, so
+  -- this is the only way guidance reaches the person who raised the blocker.
+  email         TEXT,
+  -- Identity in the source system (OwnTasks userId). Email is a label there,
+  -- not a reliable join key, so this is what rows are matched on.
+  external_id   TEXT UNIQUE,
   username      TEXT UNIQUE,
   password_hash TEXT,
   last_login_at TEXT,

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CheckCircle2, CircleHelp, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { approveDecision, requestClarification, resolveBlocker } from '@/lib/actions';
+import { approveAndDeliver, requestClarification, resolveBlocker } from '@/lib/actions';
 import { Notice, buttonClass, inputClass } from '@/components/ui';
 
 /**
@@ -34,7 +34,7 @@ export function DecisionCard({
 
   const edited = response.trim() !== draft.trim();
 
-  function send(action: typeof approveDecision | typeof requestClarification, form: FormData): void {
+  function send(action: typeof approveAndDeliver | typeof requestClarification, form: FormData): void {
     startTransition(async () => {
       const outcome = await action(form);
       setResult({ ok: outcome.ok, message: outcome.message });
@@ -69,7 +69,7 @@ export function DecisionCard({
                 form.set('blockerId', String(blockerId));
                 form.set('ceoId', String(ceoId));
                 form.set('response', response);
-                send(approveDecision, form);
+                send(approveAndDeliver, form);
               }}
               className={buttonClass('primary')}
             >
