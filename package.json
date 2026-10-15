@@ -11,9 +11,10 @@
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/seed.ts --reset",
     "test:schedule": "tsx scripts/test-schedule.ts",
-    "test": "npm run test:extract && npm run test:schedule && npm run test:form",
+    "test": "npm run test:extract && npm run test:schedule && npm run test:form && npm run test:ingest",
     "test:form": "tsx scripts/test-form.ts",
-    "mail:check": "tsx scripts/mail-check.ts"
+    "mail:check": "tsx scripts/mail-check.ts",
+    "test:ingest": "tsx scripts/test-ingest.ts"
   },
   "dependencies": {
     "chrono-node": "^2.10.3",

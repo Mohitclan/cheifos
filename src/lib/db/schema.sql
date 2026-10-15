@@ -67,7 +67,11 @@ CREATE TABLE tasks (
 CREATE TABLE updates (
   id            INTEGER PRIMARY KEY,
   employee_id   INTEGER NOT NULL REFERENCES users(id),
-  project_id    INTEGER NOT NULL REFERENCES projects(id),
+  -- Nullable since the audit: OwnTasks updates are per-user-per-day and
+  -- global, with no project on them. Guessing one from the text would be the
+  -- same invention this product refuses everywhere else, so an imported
+  -- update simply has no project until something real says otherwise.
+  project_id    INTEGER REFERENCES projects(id),
   task_id       INTEGER REFERENCES tasks(id),
   original_text TEXT NOT NULL,
   transcript    TEXT,
@@ -76,6 +80,12 @@ CREATE TABLE updates (
   -- Identity of this update in the system it was imported from. UNIQUE so a
   -- repeated sync cannot create the same update twice.
   external_id   TEXT UNIQUE,
+  -- Last change in the SOURCE system. With no change feed upstream, this is
+  -- the only way to notice someone edited an update after filing it.
+  source_updated_at TEXT,
+  -- Still being written upstream. Drafts stay out of the CEO's queue by
+  -- default: unfinished writing is not a signal.
+  is_draft      INTEGER NOT NULL DEFAULT 0,
   status        TEXT NOT NULL DEFAULT 'submitted',
   created_at    TEXT NOT NULL
 );

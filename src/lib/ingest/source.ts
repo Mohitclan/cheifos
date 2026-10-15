@@ -1,28 +1,29 @@
-import type { ExternalUpdate, UpdateSource } from './types';
-import { httpSource } from './http';
+import type { DayResult, HealthResult, UpdateSource } from './types';
+import { ownTasksSource } from './owntasks';
 
 /**
- * Picks the update source. Mirrors lib/ai/provider.ts deliberately - same
- * shape, same honesty about what is actually switched on.
+ * Picks the update source. Mirrors lib/ai/provider.ts deliberately.
  *
- * CHIEFOS_UPDATE_SOURCE=http -> read from the external API (see http.ts)
- * anything else / unset      -> nothing is imported; people write here
+ * CHIEFOS_UPDATE_SOURCE=owntasks -> read from OwnTasks (see owntasks.ts)
+ * anything else / unset          -> nothing is imported
  */
 
-/** The default. Imports nothing, which is the correct behaviour when no
- *  source is configured - an empty result is not an error. */
+/** The default. Imports nothing, and is honest that it is doing so. */
 const noneSource: UpdateSource = {
   id: 'none',
-  label: 'Written in ChiefOS',
+  label: 'No source connected',
   configured: true,
-  async fetchSince(): Promise<ExternalUpdate[]> {
-    return [];
+  async healthCheck(): Promise<HealthResult> {
+    return { ok: false, message: 'No update source configured.' };
+  },
+  async fetchDay(date: string): Promise<DayResult> {
+    return { date, people: [] };
   },
 };
 
 export function getUpdateSource(): UpdateSource {
-  if (process.env.CHIEFOS_UPDATE_SOURCE === 'http' && httpSource.configured) {
-    return httpSource;
+  if (process.env.CHIEFOS_UPDATE_SOURCE === 'owntasks' && ownTasksSource.configured) {
+    return ownTasksSource;
   }
   return noneSource;
 }

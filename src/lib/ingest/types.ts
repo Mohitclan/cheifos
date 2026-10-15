@@ -1,58 +1,113 @@
+import type { DailyUpdateForm } from './form';
+
 /**
- * Ingesting updates from the system employees already use.
+ * Reading updates from the systems people already use.
  *
- * ChiefOS does not need to be where people write their daily update. If that
- * habit already exists somewhere else, the valuable thing is reading from it -
- * the extraction, the blocker escalation and the decision loop are what this
- * product adds, and none of them care where the text came from.
+ * The contract is A DAY, not a cursor. That is not a simplification - it is
+ * what the sources actually offer. OwnTasks has no `since` filter, no cursor
+ * and no pagination on its update endpoints, so a caller has to loop days
+ * whatever the interface promises. An interface that promised a delta would
+ * be a lie the adapter had to work around.
  *
- * This is the same shape as the AI provider seam: one interface, a default
- * that always works, and a real implementation that drops in behind it.
+ * A day also carries PEOPLE, not just updates. The endpoint returns everyone
+ * expected to report alongside their update or null, so non-submitters come
+ * free - and "who went quiet" is the one thing a dashboard built from
+ * submitted work can never show.
  */
 
-/** One update as the source system describes it, before any interpretation. */
+/** One person on one day, with whatever they filed. */
+export interface ExternalPerson {
+  /** Identity in the source system. The join key - never email. */
+  externalId: string;
+  name: string;
+  /** A label, not a key. Personal addresses and inconsistent casing abound. */
+  email: string | null;
+  /**
+   * Whether the source considers them a current member. `null` means the
+   * source could not tell us - treat as unknown, never as "not an employee",
+   * or one upstream outage renders the whole org as ex-staff.
+   */
+  isActive: boolean | null;
+  /** null means no update was submitted that day. Not the same as an empty one. */
+  update: ExternalUpdate | null;
+}
+
 export interface ExternalUpdate {
   /**
-   * This update's id in the source system. Used to deduplicate, so running a
-   * sync twice cannot create the same update twice. Required.
+   * Stable id in the source. Used to deduplicate, so re-reading a day cannot
+   * create the same update twice. Where the source has no id, build one that
+   * cannot collide - `${userId}:${date}` is the usual answer.
    */
   externalId: string;
 
-  /** Whichever the source provides. Matching tries email first, then name. */
-  authorEmail?: string | null;
-  authorName?: string | null;
-  authorExternalId?: string | null;
+  /** The day it belongs to, as the source labels it. "YYYY-MM-DD". */
+  date: string;
 
-  /** Free-text project or team label, matched loosely against our projects. */
-  projectName?: string | null;
+  /** When the person submitted. null while the update is still a draft. */
+  submittedAt: string | null;
 
-  /** The update itself, exactly as the person wrote it. Never rewrite this. */
-  text: string;
+  /**
+   * Last change in the source. The only way to notice a late edit when there
+   * is no change feed, so it is compared against what we stored.
+   */
+  updatedAt: string;
 
-  /** ISO 8601. When the person submitted it in the source system. */
-  submittedAt: string;
+  /** Still being written. Unfinished writing is not a signal for the CEO. */
+  isDraft: boolean;
+
+  /** The structured answers, already separated by the source's own form. */
+  fields: DailyUpdateForm;
+
+  /**
+   * The person's own words, assembled from the fields with their labels and
+   * nothing added. Shown beside whatever was read from them, so it must stay
+   * verbatim - no cleanup, no summarising, no reordering.
+   */
+  originalText: string;
+}
+
+/** What one day's read returned. */
+export interface DayResult {
+  date: string;
+  people: ExternalPerson[];
+}
+
+export interface HealthResult {
+  ok: boolean;
+  message: string;
 }
 
 export interface UpdateSource {
   readonly id: string;
-  /** Shown in the provider chip beside the extraction provider. */
   readonly label: string;
-  /** True once the source is configured enough to be called. */
   readonly configured: boolean;
+
   /**
-   * Updates created or changed since `since` (ISO 8601), oldest first.
-   * Throwing is fine - the caller reports the failure and keeps the last
-   * successful sync point, so nothing is silently skipped.
+   * Proves the credential actually works.
+   *
+   * Required, not optional, because the sources fail silently: an
+   * under-privileged OwnTasks key returns `200 {"members":[]}` rather than a
+   * 403, which is indistinguishable from "nobody reported today". A source
+   * that cannot distinguish those two must say so here.
    */
-  fetchSince(since: string): Promise<ExternalUpdate[]>;
+  healthCheck(): Promise<HealthResult>;
+
+  /** Everyone and their update for one calendar day. */
+  fetchDay(date: string): Promise<DayResult>;
 }
 
 export interface ImportReport {
-  fetched: number;
+  from: string;
+  to: string;
+  daysRead: number;
+  peopleSeen: number;
   imported: number;
-  /** Already seen, matched on externalId. */
-  skipped: number;
-  /** Fetched but not attributable to a person or project we know about. */
+  updated: number;
+  /** Already stored and unchanged since. */
+  unchanged: number;
+  /** Drafts left alone. */
+  skippedDrafts: number;
+  /** Fetched but not attributable to anyone we know about. */
   unmatched: Array<{ externalId: string; reason: string }>;
-  error?: string;
+  errors: string[];
 }
