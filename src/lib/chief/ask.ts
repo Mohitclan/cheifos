@@ -41,6 +41,42 @@ export interface Answer {
   href?: string;
   /** True when the question fell outside what the records can answer. */
   unanswered: boolean;
+  /** Real records to render, rather than a list of sentences about them. */
+  cards?: AnswerCard[];
+}
+
+/**
+ * A record the answer is about, rendered as itself.
+ *
+ * The point of the console is that asking brings you the thing, not a
+ * paragraph describing the thing - so an answer carries rows, and the rows
+ * carry whatever action is available on them.
+ */
+export interface AnswerCard {
+  id: string;
+  kind: 'blocker' | 'meeting' | 'person' | 'project';
+  title: string;
+  subtitle?: string;
+  body?: string;
+  meta?: string;
+  tone: Answer['tone'];
+  href?: string;
+  action?: AnswerAction;
+}
+
+/**
+ * Something the CEO can do from here.
+ *
+ * The agent only ever STAGES this. `preview` is the exact text that would be
+ * sent, shown before anything happens, and the send is a separate press. The
+ * console is a shorter path to the same approval, never a way around it.
+ */
+export interface AnswerAction {
+  kind: 'approve_decision' | 'request_clarification';
+  label: string;
+  blockerId: number;
+  /** Exactly what gets sent. Never hidden behind the button. */
+  preview: string;
 }
 
 type Intent =
@@ -172,7 +208,7 @@ const GUIDE_STEPS: Array<{ terms: string[]; task: string; where: string; href: s
     terms: ['reset', 'start over', 'clean', 'fresh', 'rehearse'],
     task: 'Reset the demo data',
     where: 'Reset demo data, top right of every page',
-    href: '/',
+    href: '/dashboard',
     steps: [
       'This rebuilds the fictional workspace from scratch.',
       'Do it immediately before presenting so your counts match what you rehearsed.',
@@ -316,13 +352,34 @@ function answerDecisions(): Answer {
     speech:
       `${inbox.length} ${inbox.length === 1 ? 'item needs' : 'items need'} you. ` +
       `The first is ${top.title}, on ${top.project_name}. ${top.priority_reason}`,
-    detail: inbox.map(
-      (blocker) =>
-        `${blocker.priority.toUpperCase()} - ${blocker.title} (${blocker.project_name}, raised ${ago(blocker.created_at)})`,
-    ),
+    detail: [],
     tone: 'blocked',
     href: '/decisions',
     unanswered: false,
+    cards: inbox.map((blocker) => {
+      const draft = blocker.approved_response ?? blocker.proposed_response ?? '';
+      return {
+        id: `blocker-${blocker.id}`,
+        kind: 'blocker' as const,
+        title: blocker.title,
+        subtitle: `${blocker.project_name}${blocker.raised_by_name ? ` · raised by ${blocker.raised_by_name}` : ''}`,
+        body: blocker.priority_reason,
+        meta: ago(blocker.created_at),
+        tone: blocker.priority === 'high' ? ('blocked' as const) : ('risk' as const),
+        href: '/decisions',
+        // Only offered where a draft exists. Without one there is nothing
+        // honest to preview, and a button whose text you cannot read first
+        // is exactly what this product argues against.
+        action: draft
+          ? {
+              kind: 'approve_decision' as const,
+              label: 'Approve and send',
+              blockerId: blocker.id,
+              preview: draft,
+            }
+          : undefined,
+      };
+    }),
   };
 }
 
@@ -332,7 +389,7 @@ function answerBlockers(): Answer {
   const total = open.length + sent.length;
 
   if (total === 0) {
-    return { speech: 'Nothing is blocked right now.', detail: [], tone: 'ok', href: '/', unanswered: false };
+    return { speech: 'Nothing is blocked right now.', detail: [], tone: 'ok', href: '/dashboard', unanswered: false };
   }
 
   return {
@@ -362,7 +419,7 @@ function answerDue(): Answer {
       speech: 'No unfinished task is due within the next three days.',
       detail: [],
       tone: 'ok',
-      href: '/',
+      href: '/dashboard',
       unanswered: false,
     };
   }
@@ -640,10 +697,19 @@ function answerQuiet(): Answer {
         ? `${overdue.length} of them ${overdue.length === 1 ? 'is' : 'are'} three or more working days behind, ` +
           `starting with ${overdue[0].name}.`
         : 'None of them are more than a day or two behind.'),
-    detail: missing.map((person) => `${person.name} - ${gapLabel(person)}`),
+    detail: [],
     tone: overdue.length ? 'blocked' : 'risk',
-    href: '/',
+    href: '/reporting',
     unanswered: false,
+    cards: missing.map((person) => ({
+      id: `person-${person.id}`,
+      kind: 'person' as const,
+      title: person.name,
+      subtitle: [person.title, person.department_name].filter(Boolean).join(' · '),
+      meta: gapLabel(person),
+      tone: person.severity === 'overdue' ? ('blocked' as const) : ('risk' as const),
+      href: '/reporting',
+    })),
   };
 }
 
@@ -667,13 +733,24 @@ function answerMeetings(user: UserRow | undefined): Answer {
     speech: ahead.length
       ? `${ahead.length} ${ahead.length === 1 ? 'meeting' : 'meetings'} still ahead today. ${ahead[0].headline}`
       : 'Every meeting today is behind you.',
-    detail: meetings.map((alert) => {
-      const who = alert.item.with_whom ? ` with ${alert.item.with_whom}` : '';
-      const what = alert.item.topic ? ` about ${alert.item.topic}` : '';
-      return `${clock(alert.item.start_at)}-${clock(alert.item.end_at)} ${alert.item.title}${who}${what}`;
-    }),
+    detail: [],
     tone: ahead.length ? 'risk' : 'neutral',
     href: '/schedule',
     unanswered: false,
+    cards: meetings.map((alert) => ({
+      id: `meeting-${alert.item.id}`,
+      kind: 'meeting' as const,
+      title: alert.item.title,
+      subtitle: [
+        alert.item.with_whom ? `with ${alert.item.with_whom}` : null,
+        alert.item.topic ? `about ${alert.item.topic}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      body: alert.item.source_text ? `You asked for: "${alert.item.source_text}"` : undefined,
+      meta: `${clock(alert.item.start_at)}-${clock(alert.item.end_at)}`,
+      tone: alert.urgency === 'past' ? ('neutral' as const) : ('accent' as const),
+      href: '/schedule',
+    })),
   };
 }

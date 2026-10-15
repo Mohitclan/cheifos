@@ -35,8 +35,8 @@ import { ResetButton } from './ResetButton';
  * cannot open.
  */
 const CEO_NAV = [
-  { href: '/chief', label: 'Daily Brief', icon: Speech },
-  { href: '/', label: 'Command Center', icon: LayoutDashboard },
+  { href: '/', label: 'Chief of Staff', icon: Speech },
+  { href: '/dashboard', label: 'Command Center', icon: LayoutDashboard },
   { href: '/decisions', label: 'Decision Inbox', icon: MessageSquareWarning },
   { href: '/schedule', label: 'Schedule', icon: CalendarRange },
   { href: '/digest', label: 'Daily digest', icon: Mail },

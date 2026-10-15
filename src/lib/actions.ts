@@ -39,7 +39,7 @@ import { appUrl, getMailProvider } from '@/lib/mail/provider';
  *   - Nothing is sent or closed without an explicit human action.
  */
 
-const ALL_PATHS = ['/', '/chief', '/decisions', '/employee', '/schedule', '/activity'];
+const ALL_PATHS = ['/', '/dashboard', '/decisions', '/employee', '/schedule', '/activity', '/reporting'];
 
 function revalidateAll(): void {
   for (const path of ALL_PATHS) revalidatePath(path);

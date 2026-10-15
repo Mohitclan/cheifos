@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Pause, Play, RefreshCw, Send, Volume2, VolumeX } from 'lucide-react';
 import { askChief, getBriefing } from '@/lib/actions';
 import type { Briefing, BriefSegment } from '@/lib/chief/briefing';
-import type { Answer } from '@/lib/chief/ask';
+import type { Answer, AnswerCard } from '@/lib/chief/ask';
+import { AnswerCards } from './AnswerCards';
 import { VoiceCapture } from '@/components/voice/VoiceCapture';
 import { Panel, Pill, buttonClass, inputClass } from '@/components/ui';
 import { Avatar, type AvatarState } from './Avatar';
@@ -33,6 +34,8 @@ interface Line {
   unanswered?: boolean;
   /** Who said it - the user's own questions are echoed into the transcript. */
   from: 'chief' | 'you';
+  /** Real records to render under the answer, rather than sentences about them. */
+  cards?: AnswerCard[];
 }
 
 const TONE_STYLES: Record<BriefSegment['tone'], string> = {
@@ -60,7 +63,13 @@ function briefingToLines(briefing: Briefing): Line[] {
   ];
 }
 
-export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
+export function ChiefPanel({
+  initialBriefing,
+  ceoId,
+}: {
+  initialBriefing: Briefing;
+  ceoId: number;
+}) {
   const [lines, setLines] = useState<Line[]>(() => briefingToLines(initialBriefing));
   const [suggestions, setSuggestions] = useState<string[]>(initialBriefing.suggestions);
   const [question, setQuestion] = useState('');
@@ -176,6 +185,7 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
       href: answer.href,
       unanswered: answer.unanswered,
       from: 'chief',
+      cards: answer.cards,
     };
 
     setLines((current) => [...current, reply]);
@@ -292,6 +302,10 @@ export function ChiefPanel({ initialBriefing }: { initialBriefing: Briefing }) {
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {line.cards && line.cards.length > 0 && (
+                    <AnswerCards cards={line.cards} ceoId={ceoId} />
                   )}
 
                   {line.href && (
